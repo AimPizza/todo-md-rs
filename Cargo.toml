@@ -1,0 +1,16 @@
+[package]
+name = "todoapp"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = "0.4.31"
+config = "0.13.3"
+dirs = "5.0.1"
+lazy_static = "1.4.0"
+regex = "1.10.2"
+serde = { version = "1.0.189", features = ["derive"] }
+serde_json = "1.0.107"
+toml = "0.8.6"
