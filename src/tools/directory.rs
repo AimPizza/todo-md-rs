@@ -64,7 +64,6 @@ pub fn get_config() -> Config {
         .join(PathBuf::from("config.toml"));
     // check if configuration can be found
     if directory::check_for_dir(path.clone()) {
-        println!("configuration found"); // DEBUG only
         let contents: String = fs::read_to_string(path).unwrap();
         configuration = match toml::from_str(&contents) {
             Ok(content) => content,

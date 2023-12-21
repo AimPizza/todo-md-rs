@@ -27,15 +27,15 @@ impl Todo {
             title: String::from(""),
         }
     }
-}
-impl From<Todo> for String {
-    fn from(todoitem: Todo) -> String {
+
+    pub fn get_string(todoitem: Todo, parser: TodoParser) -> String {
         let mut result_string = String::new();
         result_string.push_str(if todoitem.is_completed {
-            "- [x]"
+            &parser.example_done
         } else {
-            "- [ ]"
+            &parser.example_todo
         });
+
         result_string.push(' ');
         result_string.push(todoitem.priority);
         result_string.push(' ');
@@ -68,14 +68,17 @@ impl TodoHandler {
         }
     }
 
-    pub fn add(&self, input_content: Vec<String>) {
-        println!("adding task: {}", input_content.join(" "));
-        // testing, create default todoitem
+    pub fn add(&self, input_content: Vec<String>, parser: TodoParser) {
         let mut todoitem: Todo = Todo::new();
-        todoitem.title = input_content.join(" ");
-        //let _ = files::export_line(std::path::Path::new(LISTPATH), title.join(" "));
+
+        let title = input_content.join(" ").trim().to_string();
+        println!("adding task: {}", title);
+        todoitem.title = title;
         // write item into file
-        let _ = directory::export_line(&self.path.join(&self.filename), String::from(todoitem));
+        let _ = directory::export_line(
+            &self.path.join(&self.filename),
+            Todo::get_string(todoitem, parser),
+        );
     }
 
     pub fn done(&self, indicies: Vec<String>) {
@@ -83,6 +86,7 @@ impl TodoHandler {
     }
 
     pub fn remove(&self, id: Vec<String>) {
+        // sanitize the given arguments
         let mut sanitized_ids: Vec<u32> = Vec::new();
         for item in id {
             match item.parse::<u32>() {
@@ -91,6 +95,9 @@ impl TodoHandler {
             }
         }
         println!("removing task with IDs: {:?}", sanitized_ids);
+
+        // delete those tasks
+        // TODO
     }
 
     pub fn list(&self, todos: Vec<Todo>) {
@@ -108,6 +115,8 @@ impl TodoHandler {
 pub struct TodoParser {
     pub completion_style: Regex, // check if line is valid
     pub completion_done: Regex,  // check if valid line is done
+    pub example_todo: String,
+    pub example_done: String,
     pub todo_list: Vec<Todo>,
 }
 impl TodoParser {
@@ -115,20 +124,22 @@ impl TodoParser {
         let default_md: TodoParser = TodoParser {
             completion_style: Regex::new(r"^\s*-\s*\[[ xX]\]").unwrap(),
             completion_done: Regex::new(r"^\s*-\s*\[[^\s]\]").unwrap(),
+            example_todo: String::from("- [ ]"),
+            example_done: String::from("- [X]"),
             todo_list: Vec::new(),
         };
 
         // Markdown style
         if config.format.checkbox_style == "md" {
-            println!("TodoParser::new(): md format found");
             return default_md;
         }
         // Logseq style
         else if config.format.checkbox_style == "logseq" {
-            println!("TodoParser::new(): Logseq format found");
             return TodoParser {
                 completion_style: Regex::new(r"^\s*-\s*[A-Z]{4}").unwrap(),
                 completion_done: Regex::new(r"^\s*-\s*DONE\s").unwrap(),
+                example_todo: String::from("- TODO"),
+                example_done: String::from("- DONE"),
                 todo_list: default_md.todo_list,
             };
         }
@@ -159,13 +170,11 @@ impl TodoParser {
     }
 }
 
-pub fn print_info(arg: i32) {
+pub enum Info {
+    Help,
+}
+pub fn print_info(arg: Info) {
     match arg {
-        1 => println!("printing out all your tasks..."),
-        2 => println!("adding task"),
-        3 => println!("removing task"),
-        4 => println!("illegal operation"),
-        5 => println!("no help page implemented yet"),
-        i32::MIN..=0_i32 | 5_i32..=i32::MAX => println!("your task was not recognised"),
+        Info::Help => println!("no help page implemented yet"),
     }
 }
