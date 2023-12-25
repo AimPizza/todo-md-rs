@@ -181,6 +181,6 @@ pub enum Info {
 }
 pub fn print_info(arg: Info) {
     match arg {
-        Info::Help => println!("no help page implemented yet"),
+        Info::Help => println!("implement a help page"),
     }
 }
