@@ -1,3 +1,17 @@
+---
+
+25-dec-2023
+in order to remove a task its lines in the todofile should be stored within the Todo struct.
+- allows for odd formats like logseqs
+- removes task properly if user as other stuff in the file that is not a task and therefore needs proper range
+
+When I see the first task, I set its start line. When I see the next task I set the first tasks end line to the current - 1, 
+then reset the task item and assign current to its start line.
+
+Perhaps I need to tell the loop going through the lines whether to push that item into the list through a bool.
+
+---
+
 init:
   check for the config and return defaults
   use those values to check for the todofile and ask if it should be created

@@ -11,9 +11,10 @@ fn get_date() -> String {
     date.to_string()
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Todo {
     pub id: i32,
+    pub line: i32, // should probably be a tuple of start/end (see logseq task block would remain junk)
     pub is_completed: bool,
     pub priority: char,
     pub creation_date: String,
@@ -23,6 +24,7 @@ impl Todo {
     pub fn new() -> Todo {
         Todo {
             id: 0,
+            line: 0,
             is_completed: false,
             priority: 'Z',
             creation_date: get_date(),
@@ -154,11 +156,16 @@ impl TodoParser {
     }
     // TODO: complete this method to include all the other fields of Todo
     pub fn strings_to_todo(&mut self, lines: Vec<String>) {
-        for line in lines.iter() {
+        let mut item_list: Vec<Todo> = Vec::new();
+
+        for (linecount, line) in lines.iter().enumerate() {
+            // new task detected
             if self.completion_style.is_match(&line) {
                 let mut item = Todo::new();
 
                 item.id = self.todo_list.len() as i32 + 1;
+
+                item.line = linecount as i32 + 1;
 
                 item.is_completed = self.completion_done.is_match(&line);
 
@@ -170,9 +177,12 @@ impl TodoParser {
                 };
                 item.title = line[completion_part.len() + 1..].to_string();
 
-                self.todo_list.push(item);
+                dbg!(item.clone());
+                item_list.push(item.clone());
             }
         }
+
+        self.todo_list = item_list.clone();
     }
 }
 
