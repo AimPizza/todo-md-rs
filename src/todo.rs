@@ -13,6 +13,7 @@ fn get_date() -> String {
 
 #[derive(Debug)]
 pub struct Todo {
+    pub id: i32,
     pub is_completed: bool,
     pub priority: char,
     pub creation_date: String,
@@ -21,6 +22,7 @@ pub struct Todo {
 impl Todo {
     pub fn new() -> Todo {
         Todo {
+            id: 0,
             is_completed: false,
             priority: 'Z',
             creation_date: get_date(),
@@ -85,7 +87,7 @@ impl TodoHandler {
         println!("{:?}", indicies);
     }
 
-    pub fn remove(&self, id: Vec<String>) {
+    pub fn remove(&self, id: Vec<String>, parser: TodoParser) {
         // sanitize the given arguments
         let mut sanitized_ids: Vec<u32> = Vec::new();
         for item in id {
@@ -98,14 +100,15 @@ impl TodoHandler {
 
         // delete those tasks
         // TODO
+        println!("{:?}", parser.todo_list);
     }
 
     pub fn list(&self, todos: Vec<Todo>) {
         for todoitem in todos {
             if todoitem.is_completed {
-                println!("[X] {}", todoitem.title);
+                println!("[X] {} {}", todoitem.id, todoitem.title);
             } else {
-                println!("[ ] {}", todoitem.title);
+                println!("[ ] {} {}", todoitem.id, todoitem.title);
             }
         }
     }
@@ -154,6 +157,9 @@ impl TodoParser {
         for line in lines.iter() {
             if self.completion_style.is_match(&line) {
                 let mut item = Todo::new();
+
+                item.id = self.todo_list.len() as i32 + 1;
+
                 item.is_completed = self.completion_done.is_match(&line);
 
                 // item.title = line[3..].to_string();

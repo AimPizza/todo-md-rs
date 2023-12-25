@@ -20,7 +20,7 @@ fn main() {
             "list" | "l" | "ls" => todos.list(parser.todo_list),
             "add" | "a" => todos.add(args[2..].to_vec(), parser),
             "done" | "d" => todos.done(args[2..].to_vec()),
-            "remove" | "rm" => todos.remove(args[2..].to_vec()), // it should remove all tasks with the given ids'
+            "remove" | "rm" => todos.remove(args[2..].to_vec(), parser), // it should remove all tasks with the given ids'
             "help" => todo::print_info(todo::Info::Help),
             &_ => todo::print_info(todo::Info::Help),
         }

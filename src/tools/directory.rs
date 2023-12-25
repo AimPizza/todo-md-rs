@@ -115,6 +115,10 @@ pub fn read_lines(filepath: &PathBuf) -> Vec<String> {
 pub fn export_line(filepath: &PathBuf, line: String) -> std::io::Result<()> {
     let mut file = fs::OpenOptions::new().append(true).open(filepath)?;
     file.write_all(format!("{line}\n").as_bytes())?;
+
+    let newone = fs::read_to_string(filepath).unwrap();
+    dbg!(newone);
+
     Ok(())
 }
 
