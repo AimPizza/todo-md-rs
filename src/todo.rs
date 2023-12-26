@@ -13,8 +13,8 @@ fn get_date() -> String {
 
 #[derive(Debug, Clone)]
 pub struct Todo {
-    pub id: i32,
-    pub line: i32, // should probably be a tuple of start/end (see logseq task block would remain junk)
+    pub id: u32,
+    pub line: u32, // should probably be a tuple of start/end (see logseq task block would remain junk)
     pub is_completed: bool,
     pub priority: char,
     pub creation_date: String,
@@ -55,6 +55,7 @@ impl Todo {
 pub struct TodoHandler {
     pub path: PathBuf,
     pub filename: PathBuf,
+    pub complete_path: PathBuf,
 }
 impl TodoHandler {
     pub fn init(config: &directory::Config) -> TodoHandler {
@@ -63,10 +64,14 @@ impl TodoHandler {
             config.path.todo_filename.clone().into(),
         ) {
             Ok(result) => {
+                let path = PathBuf::from(result.0);
+                let filename = PathBuf::from(result.1);
+                let complete_path: PathBuf = path.join(filename.clone());
                 return TodoHandler {
-                    path: PathBuf::from(result.0),
-                    filename: PathBuf::from(result.1),
-                }
+                    path,
+                    filename,
+                    complete_path,
+                };
             }
             Err(_e) => panic!("could not verify path for a file"),
         }
@@ -89,7 +94,8 @@ impl TodoHandler {
         println!("{:?}", indicies);
     }
 
-    pub fn remove(&self, id: Vec<String>, parser: TodoParser) {
+    // TODO notice that we're currently removing by line number not by task id
+    pub fn remove(&self, id: Vec<String>, path: PathBuf, parser: TodoParser) {
         // sanitize the given arguments
         let mut sanitized_ids: Vec<u32> = Vec::new();
         for item in id {
@@ -101,8 +107,15 @@ impl TodoHandler {
         println!("removing task with IDs: {:?}", sanitized_ids);
 
         // delete those tasks
-        // TODO
-        println!("{:?}", parser.todo_list);
+        // TODO: I think after removing one line, the next one changes if the removed one is
+        // smaller than the next
+        let mut lines_to_rm: Vec<u32> = Vec::new();
+        for item in parser.todo_list {
+            if sanitized_ids.contains(&item.id) {
+                lines_to_rm.push(item.line)
+            }
+        }
+        directory::remove_lines(&path, lines_to_rm);
     }
 
     pub fn list(&self, todos: Vec<Todo>) {
@@ -163,9 +176,9 @@ impl TodoParser {
             if self.completion_style.is_match(&line) {
                 let mut item = Todo::new();
 
-                item.id = self.todo_list.len() as i32 + 1;
+                item.id = item_list.len() as u32 + 1;
 
-                item.line = linecount as i32 + 1;
+                item.line = linecount as u32 + 1;
 
                 item.is_completed = self.completion_done.is_match(&line);
 
@@ -177,7 +190,6 @@ impl TodoParser {
                 };
                 item.title = line[completion_part.len() + 1..].to_string();
 
-                dbg!(item.clone());
                 item_list.push(item.clone());
             }
         }

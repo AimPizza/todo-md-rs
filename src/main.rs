@@ -7,12 +7,12 @@ fn main() {
     // get arguments
     let args: Vec<String> = env::args().collect();
 
-    let config = directory::get_config();
+    let config: directory::Config = directory::get_config();
     let handler = todo::TodoHandler::init(&config);
 
     // get the todos
     let mut parser = todo::TodoParser::new(&config); // get empty parser
-    parser.strings_to_todo(directory::read_lines(&handler.path.join(&handler.filename))); // populate parser
+    parser.strings_to_todo(directory::read_lines(&handler.complete_path)); // populate parser
 
     if args.len() > 1 {
         let operation = &args[1];
@@ -20,7 +20,9 @@ fn main() {
             "list" | "l" | "ls" => handler.list(parser.todo_list),
             "add" | "a" => handler.add(args[2..].to_vec(), parser),
             "done" | "d" => handler.done(args[2..].to_vec()),
-            "remove" | "rm" => handler.remove(args[2..].to_vec(), parser), // it should remove all tasks with the given ids'
+            "remove" | "rm" => {
+                handler.remove(args[2..].to_vec(), handler.complete_path.clone(), parser)
+            } // it should remove all tasks with the given ids'
             "help" => todo::print_info(todo::Info::Help),
             &_ => todo::print_info(todo::Info::Help),
         }
