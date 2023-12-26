@@ -107,8 +107,6 @@ impl TodoHandler {
         println!("removing task with IDs: {:?}", sanitized_ids);
 
         // delete those tasks
-        // TODO: I think after removing one line, the next one changes if the removed one is
-        // smaller than the next
         let mut lines_to_rm: Vec<u32> = Vec::new();
         for item in parser.todo_list {
             if sanitized_ids.contains(&item.id) {
