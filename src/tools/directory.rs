@@ -62,9 +62,10 @@ pub fn get_config() -> Config {
         .expect("config dir error")
         .join(PathBuf::from("todo-md-rs"))
         .join(PathBuf::from("config.toml"));
+
     // check if configuration can be found
     if directory::check_for_dir(path.clone()) {
-        println!("configuration found"); // DEBUG only
+        // config found
         let contents: String = fs::read_to_string(path).unwrap();
         configuration = match toml::from_str(&contents) {
             Ok(content) => content,
@@ -76,6 +77,7 @@ pub fn get_config() -> Config {
             }
         };
     } else {
+        // config not found
         match input::readinput("create base configuraton file? (y/n): ")
             .expect("input failed")
             .as_str()
@@ -113,9 +115,40 @@ pub fn read_lines(filepath: &PathBuf) -> Vec<String> {
     lines
 }
 
+pub fn remove_lines(filepath: &PathBuf, indices: Vec<u32>) {
+    let original_content = fs::read_to_string(filepath).expect("file not found");
+    let indices_zero_indexed: Vec<u32> = indices
+        .iter()
+        .map(|&nr| if nr < 1 { nr } else { nr - 1 })
+        .collect();
+
+    let lines: Vec<String> = original_content
+        .lines()
+        .enumerate()
+        .filter_map(|(i, line)| {
+            // line number is 1-indexed but we'll remove by counting 0-indexed
+            if !indices_zero_indexed.contains(&(i as u32)) {
+                Some(line.to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    println!("remove_lines: {:?}", indices);
+
+    let mut file = File::create(filepath).unwrap();
+    for line in lines {
+        let _ = writeln!(file, "{}", line);
+    }
+}
+
 pub fn export_line(filepath: &PathBuf, line: String) -> std::io::Result<()> {
     let mut file = fs::OpenOptions::new().append(true).open(filepath)?;
     file.write_all(format!("{line}\n").as_bytes())?;
+
+    let _newone = fs::read_to_string(filepath).unwrap();
+
     Ok(())
 }
 

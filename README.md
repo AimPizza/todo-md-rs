@@ -1,3 +1,9 @@
+# Thoughts
+This program should fulfill certian requirements:
+
+- store tasks in a simple file format (.md)
+- allow integration with other note-taking apps such as Obsidian or [Logseq](https://github.com/logseq/logseq) (suggestions welcome)
+- should do what it does safely/easily and nothing unnessecary
 
 # Configuration
 Upon launching the program for the first time it will ask you whether it should create a configuration file in $HOME/.config/todo-md-rs/.
