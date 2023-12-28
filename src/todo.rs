@@ -7,7 +7,8 @@ use crate::tools::directory;
 use chrono::prelude::*;
 
 fn get_date() -> String {
-    let date = Local::now();
+    let date = Local::now().date_naive();
+    println!("--- date --- {date:?} ---");
     date.to_string()
 }
 
@@ -16,7 +17,6 @@ pub struct Todo {
     pub id: u32,
     pub line: u32, // should probably be a tuple of start/end (see logseq task block would remain junk)
     pub is_completed: bool,
-    pub priority: char,
     pub creation_date: String,
     pub title: String,
 }
@@ -26,26 +26,26 @@ impl Todo {
             id: 0,
             line: 0,
             is_completed: false,
-            priority: 'Z',
-            creation_date: get_date(),
+            creation_date: String::from("0000-00-00"),
             title: String::from(""),
         }
     }
 
     pub fn get_string(todoitem: Todo, parser: TodoParser) -> String {
+        // goal:
+        // - [ ] Task title ~3d #type @name yyyy-mm-dd
+
         let mut result_string = String::new();
+
         result_string.push_str(if todoitem.is_completed {
             &parser.example_done
         } else {
             &parser.example_todo
         });
-
-        result_string.push(' ');
-        result_string.push(todoitem.priority);
-        result_string.push(' ');
-        result_string.push_str(&todoitem.creation_date);
         result_string.push(' ');
         result_string.push_str(&todoitem.title);
+        result_string.push(' ');
+        result_string.push_str(&todoitem.creation_date);
 
         result_string
     }
@@ -83,6 +83,9 @@ impl TodoHandler {
         let title = input_content.join(" ").trim().to_string();
         println!("adding task: {}", title);
         todoitem.title = title;
+
+        todoitem.creation_date = get_date();
+
         // write item into file
         let _ = directory::export_line(
             &self.path.join(&self.filename),
