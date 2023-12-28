@@ -8,7 +8,6 @@ use chrono::prelude::*;
 
 fn get_date() -> String {
     let date = Local::now().date_naive();
-    println!("--- date --- {date:?} ---");
     date.to_string()
 }
 
@@ -172,6 +171,8 @@ impl TodoParser {
     pub fn strings_to_todo(&mut self, lines: Vec<String>) {
         let mut item_list: Vec<Todo> = Vec::new();
 
+        let date_regex = Regex::new(r"\d{4}-\d{2}-\d{2}").unwrap();
+
         for (linecount, line) in lines.iter().enumerate() {
             // new task detected
             if self.completion_style.is_match(&line) {
@@ -182,6 +183,11 @@ impl TodoParser {
                 item.line = linecount as u32 + 1;
 
                 item.is_completed = self.completion_done.is_match(&line);
+
+                item.creation_date = match date_regex.captures(&line) {
+                    Some(date) => date[0].to_string(),
+                    _ => "".to_string(),
+                };
 
                 // item.title = line[3..].to_string();
 
