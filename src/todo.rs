@@ -90,8 +90,34 @@ impl TodoHandler {
         );
     }
 
-    pub fn done(&self, indicies: Vec<String>) {
-        println!("{:?}", indicies);
+    pub fn done(&self, indicies: Vec<String>, mut parser: TodoParser) {
+
+        // keep track of task_ids to then mark as done
+        let mut to_check_off: Vec<usize> = Vec::new();
+
+        // iterate arguments and sanitize
+        for item in indicies {
+            match item.parse::<usize>() {
+                Ok(val) => {
+                    println!("{item} is indeed a number");
+                    if val < parser.todo_list.len() {
+                        println!("{} is now done, yay", parser.todo_list[val].title);
+                        to_check_off.push(val);
+                    } else {
+                        println!("DEBUG: len is: {}", parser.todo_list.len());
+                        println!("DEBUG: todo is: {:?}", parser.todo_list);
+                        println!("argument {val} is out of range");
+                    }
+                },
+                // just skip invalid arguments
+                Err(_) => println!("{item} is not a valid number"),
+            };        
+        }
+
+        // act upon sanitized arguments
+        for pos in to_check_off {
+            // TODO rewrite file in that position
+        }
     }
 
     // TODO notice that we're currently removing by line number not by task id
