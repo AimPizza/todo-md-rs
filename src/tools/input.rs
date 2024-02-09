@@ -1,16 +1,4 @@
-use std::io::{self, Write};
 
-pub fn readinput(prompt: &str) -> io::Result<String> {
-    let mut buffer = String::new();
-    print!("{prompt}");
-    io::stdout().flush()?;
-    let stdin = io::stdin();
-    stdin.read_line(&mut buffer)?;
-    // remove trailing newline
-    let input = buffer.trim().to_string();
-
-    Ok(input)
-}
 
 /* // idk if this does anything useful
 fn main() {
