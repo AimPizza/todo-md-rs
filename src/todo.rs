@@ -1,18 +1,122 @@
 use regex::Regex;
 use std::path::PathBuf;
 
-use crate::tools::directory;
-
 // testing with time crates
 use chrono::prelude::*;
+use dirs;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::fs::File;
+use std::io::{self, Write};
+use toml;
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TodoPath {
+    pub todo_path: PathBuf,
+    pub todo_filename: PathBuf,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TodoFormatting {
+    pub checkbox_style: String, // accepted: "md", "logseq"
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct ConfigFile {
+    pub path: TodoPath,
+    pub format: TodoFormatting,
+}
+impl ConfigFile {
+    pub fn init() -> ConfigFile {
+        // BEGIN GET_CONFIG removeme
+
+        // should check configuration and if that is invalid, assign arguments as default paths
+        // defaults for content of config
+        let mut conf = ConfigFile {
+            format: TodoFormatting {
+                checkbox_style: "md".to_string(),
+            },
+            path: TodoPath {
+                todo_path: dirs::home_dir().unwrap(),
+                todo_filename: "todo.md".into(),
+            },
+        };
+        // path to the configuration file
+        let path = dirs::config_dir()
+            .expect("config dir error")
+            .join(PathBuf::from("todo-md-rs"))
+            .join(PathBuf::from("config.toml"));
+
+        // check if configuration can be found
+        if check_for_dir(path.clone()) {
+            // config found
+            let contents: String = fs::read_to_string(path).unwrap();
+            conf = match toml::from_str(&contents) {
+                Ok(content) => content,
+                Err(_e) => {
+                    println!("error in your config!");
+
+                    println!("using the following defaults: {conf:?}");
+                    conf
+                }
+            };
+        } else {
+            // config not found
+            match readinput("create base configuraton file? (y/n): ")
+                .expect("input failed")
+                .as_str()
+            {
+                // create file and write defaults into it
+                "y" => {
+                    create_path(path.clone());
+
+                    let _ = export_line(&path, toml::to_string(&conf).unwrap());
+                }
+                _ => {
+                    println!("using temporary path"); // configuration should not have changed from the initialization
+                    let toml = toml::to_string(&conf).unwrap();
+                    println!("{toml:#?}");
+                }
+            }
+        }
+        // END GET_CONFIG removeme
+
+        let unified_path: PathBuf = conf.path.todo_path.join(conf.path.todo_filename.clone());
+
+        while !check_for_dir(unified_path.clone()) {
+            match readinput(format!("create {} ? (y/n)", unified_path.display()).as_str())
+                .expect("input failed")
+                .as_str()
+            {
+                "y" => create_path(unified_path.clone()),
+                _ => panic!("user refused"),
+            }
+        }
+        return conf;
+    }
+}
+
+pub fn create_path(path: PathBuf) {
+    match check_for_dir(path.clone()) {
+        false => {
+            if let Some(parent) = path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            println!("creating: {path:?}");
+            let _ = File::create(path.clone()).expect("creating file failed");
+        }
+        true => {
+            println!("file already exists");
+        }
+    }
+}
 fn get_date() -> String {
     let date = Local::now();
     date.to_string()
 }
 
 #[derive(Debug, Clone)]
-pub struct Todo {
+pub struct TodoItem {
     pub id: u32,
     pub line: u32, // should probably be a tuple of start/end (see logseq task block would remain junk)
     pub is_completed: bool,
@@ -20,9 +124,9 @@ pub struct Todo {
     pub creation_date: String,
     pub title: String,
 }
-impl Todo {
-    pub fn new() -> Todo {
-        Todo {
+impl TodoItem {
+    pub fn new() -> TodoItem {
+        TodoItem {
             id: 0,
             line: 0,
             is_completed: false,
@@ -32,7 +136,7 @@ impl Todo {
         }
     }
 
-    pub fn get_string(todoitem: Todo, parser: TodoParser) -> String {
+    pub fn get_string(todoitem: TodoItem, parser: &TodoConfig) -> String {
         let mut result_string = String::new();
         result_string.push_str(if todoitem.is_completed {
             &parser.example_done
@@ -51,47 +155,175 @@ impl Todo {
     }
 }
 
-#[derive(Debug)]
-pub struct TodoHandler {
-    pub path: PathBuf,
-    pub filename: PathBuf,
-    pub complete_path: PathBuf,
+// TODO: not respecting config yet
+pub struct TodoConfig {
+    // from TodoParser
+    pub completion_style: Regex, // check if line is valid
+    pub completion_done: Regex,  // check if valid line is done
+    pub example_todo: String,
+    pub example_done: String,
 }
-impl TodoHandler {
-    pub fn init(config: &directory::Config) -> TodoHandler {
-        match directory::ensure_todofile(
-            config.path.todo_path.clone().into(),
-            config.path.todo_filename.clone().into(),
-        ) {
-            Ok(result) => {
-                let path = PathBuf::from(result.0);
-                let filename = PathBuf::from(result.1);
-                let complete_path: PathBuf = path.join(filename.clone());
-                return TodoHandler {
-                    path,
-                    filename,
-                    complete_path,
-                };
-            }
-            Err(_e) => panic!("could not verify path for a file"),
+impl TodoConfig {
+    //
+    // converted
+    //
+
+    pub fn new(conf_file: &ConfigFile) -> TodoConfig {
+        let default_md: TodoConfig = TodoConfig {
+            completion_style: Regex::new(r"^\s*-\s*\[[ xX]\]").unwrap(),
+            completion_done: Regex::new(r"^\s*-\s*\[[^\s]\]").unwrap(),
+            example_todo: String::from("- [ ]"),
+            example_done: String::from("- [X]"),
+        };
+
+        // Markdown style
+        if conf_file.format.checkbox_style == "md" {
+            return default_md;
+        }
+        // Logseq style
+        else if conf_file.format.checkbox_style == "logseq" {
+            return TodoConfig {
+                completion_style: Regex::new(r"^\s*-\s*[A-Z]{4}").unwrap(),
+                completion_done: Regex::new(r"^\s*-\s*DONE\s").unwrap(),
+                example_todo: String::from("- TODO"),
+                example_done: String::from("- DONE"),
+            };
+        }
+        // default to Markdown
+        else {
+            println!("Be careful: your config contains an invalid format! Defaulting to \"md\".");
+            return default_md;
         }
     }
 
-    pub fn add(&self, input_content: Vec<String>, parser: TodoParser) {
-        let mut todoitem: Todo = Todo::new();
+    //
+    // from TodoHandler
+    //
+
+    //
+    // from TodoParser
+    //
+}
+
+pub enum Info {
+    Help,
+}
+pub fn print_info(arg: Info) {
+    match arg {
+        Info::Help => println!("implement a help page"),
+    }
+}
+
+// previous "directory" methods
+pub fn remove_lines(filepath: &PathBuf, indices: Vec<u32>) {
+    let original_content = fs::read_to_string(filepath).expect("file not found");
+    let indices_zero_indexed: Vec<u32> = indices
+        .iter()
+        .map(|&nr| if nr < 1 { nr } else { nr - 1 })
+        .collect();
+
+    let lines: Vec<String> = original_content
+        .lines()
+        .enumerate()
+        .filter_map(|(i, line)| {
+            // line number is 1-indexed but we'll remove by counting 0-indexed
+            if !indices_zero_indexed.contains(&(i as u32)) {
+                Some(line.to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    println!("remove_lines: {:?}", indices);
+
+    let mut file = File::create(filepath).unwrap();
+    for line in lines {
+        let _ = writeln!(file, "{}", line);
+    }
+}
+
+pub fn read_lines(filepath: &PathBuf) -> Vec<String> {
+    // let parser = crate::todo::TodoParser::new();
+    let mut lines: Vec<String> = Vec::new();
+    let file = fs::read_to_string(filepath).expect("file not found");
+    for line in file.lines() {
+        lines.push(line.to_string())
+    }
+    // for line in file.lines() {
+    //     parser
+    //         .todo_list
+    //         .push(parser.string_to_todo(line.to_string()));
+    //     println!("{line}");
+    // }
+    lines
+}
+
+pub fn export_line(filepath: &PathBuf, line: String) -> std::io::Result<()> {
+    let mut file = fs::OpenOptions::new().append(true).open(filepath)?;
+    file.write_all(format!("{line}\n").as_bytes())?;
+
+    let _newone = fs::read_to_string(filepath).unwrap();
+
+    Ok(())
+}
+
+pub fn check_for_dir(path: PathBuf) -> bool {
+    match path.try_exists() {
+        Ok(true) => {
+            // just return true?
+            return true;
+        }
+        Ok(false) => {
+            // just return false?
+            return false;
+        }
+        Err(e) => {
+            // error
+            println!("attention: {e:?}");
+            panic!("unhandled error occured: tried checking for dir");
+        }
+    }
+}
+pub fn readinput(prompt: &str) -> io::Result<String> {
+    let mut buffer = String::new();
+    print!("{prompt}");
+    io::stdout().flush()?;
+    let stdin = io::stdin();
+    stdin.read_line(&mut buffer)?;
+    // remove trailing newline
+    let input = buffer.trim().to_string();
+
+    Ok(input)
+}
+
+pub struct Todo {
+    todo_list: Vec<TodoItem>,
+}
+impl Todo {
+    pub fn new() -> Todo {
+        Todo {
+            todo_list: Vec::new(),
+        }
+    }
+
+    pub fn add(&self, input_content: Vec<String>, conf_todo: &TodoConfig, conf_file: &ConfigFile) {
+        let mut todoitem: TodoItem = TodoItem::new();
 
         let title = input_content.join(" ").trim().to_string();
         println!("adding task: {}", title);
         todoitem.title = title;
         // write item into file
-        let _ = directory::export_line(
-            &self.path.join(&self.filename),
-            Todo::get_string(todoitem, parser),
+        let _ = export_line(
+            &conf_file
+                .path
+                .todo_path
+                .join(conf_file.path.todo_filename.clone()),
+            TodoItem::get_string(todoitem, conf_todo),
         );
     }
 
-    pub fn done(&self, indicies: Vec<String>, mut parser: TodoParser) {
-
+    pub fn done(&self, indicies: Vec<String>) {
         // keep track of task_ids to then mark as done
         let mut to_check_off: Vec<usize> = Vec::new();
 
@@ -100,28 +332,29 @@ impl TodoHandler {
             match item.parse::<usize>() {
                 Ok(val) => {
                     println!("{item} is indeed a number");
-                    if val < parser.todo_list.len() {
-                        println!("{} is now done, yay", parser.todo_list[val].title);
+                    if val < self.todo_list.len() {
+                        println!("{} is now done, yay", self.todo_list[val].title);
                         to_check_off.push(val);
                     } else {
-                        println!("DEBUG: len is: {}", parser.todo_list.len());
-                        println!("DEBUG: todo is: {:?}", parser.todo_list);
+                        println!("DEBUG: len is: {}", self.todo_list.len());
+                        println!("DEBUG: todo is: {:?}", self.todo_list);
                         println!("argument {val} is out of range");
                     }
-                },
+                }
                 // just skip invalid arguments
                 Err(_) => println!("{item} is not a valid number"),
-            };        
+            };
         }
 
+        /*
         // act upon sanitized arguments
         for pos in to_check_off {
             // TODO rewrite file in that position
-        }
+        } */
     }
 
     // TODO notice that we're currently removing by line number not by task id
-    pub fn remove(&self, id: Vec<String>, path: PathBuf, parser: TodoParser) {
+    pub fn remove(&self, id: Vec<String>, path: PathBuf) {
         // sanitize the given arguments
         let mut sanitized_ids: Vec<u32> = Vec::new();
         for item in id {
@@ -134,16 +367,16 @@ impl TodoHandler {
 
         // delete those tasks
         let mut lines_to_rm: Vec<u32> = Vec::new();
-        for item in parser.todo_list {
+        for item in &self.todo_list {
             if sanitized_ids.contains(&item.id) {
                 lines_to_rm.push(item.line)
             }
         }
-        directory::remove_lines(&path, lines_to_rm);
+        remove_lines(&path, lines_to_rm);
     }
 
-    pub fn list(&self, todos: Vec<Todo>) {
-        for todoitem in todos {
+    pub fn list(&self) {
+        for todoitem in &self.todo_list {
             if todoitem.is_completed {
                 println!("[X] {} {}", todoitem.id, todoitem.title);
             } else {
@@ -151,64 +384,25 @@ impl TodoHandler {
             }
         }
     }
-}
 
-// TODO: not respecting config yet
-pub struct TodoParser {
-    pub completion_style: Regex, // check if line is valid
-    pub completion_done: Regex,  // check if valid line is done
-    pub example_todo: String,
-    pub example_done: String,
-    pub todo_list: Vec<Todo>,
-}
-impl TodoParser {
-    pub fn new(config: &directory::Config) -> TodoParser {
-        let default_md: TodoParser = TodoParser {
-            completion_style: Regex::new(r"^\s*-\s*\[[ xX]\]").unwrap(),
-            completion_done: Regex::new(r"^\s*-\s*\[[^\s]\]").unwrap(),
-            example_todo: String::from("- [ ]"),
-            example_done: String::from("- [X]"),
-            todo_list: Vec::new(),
-        };
-
-        // Markdown style
-        if config.format.checkbox_style == "md" {
-            return default_md;
-        }
-        // Logseq style
-        else if config.format.checkbox_style == "logseq" {
-            return TodoParser {
-                completion_style: Regex::new(r"^\s*-\s*[A-Z]{4}").unwrap(),
-                completion_done: Regex::new(r"^\s*-\s*DONE\s").unwrap(),
-                example_todo: String::from("- TODO"),
-                example_done: String::from("- DONE"),
-                todo_list: default_md.todo_list,
-            };
-        }
-        // default to Markdown
-        else {
-            println!("Be careful: your config contains an invalid format! Defaulting to \"md\".");
-            return default_md;
-        }
-    }
     // TODO: complete this method to include all the other fields of Todo
-    pub fn strings_to_todo(&mut self, lines: Vec<String>) {
-        let mut item_list: Vec<Todo> = Vec::new();
+    pub fn strings_to_todo(&mut self, lines: Vec<String>, conf_todo: &TodoConfig) {
+        let mut item_list: Vec<TodoItem> = Vec::new();
 
         for (linecount, line) in lines.iter().enumerate() {
             // new task detected
-            if self.completion_style.is_match(&line) {
-                let mut item = Todo::new();
+            if conf_todo.completion_style.is_match(&line) {
+                let mut item = TodoItem::new();
 
                 item.id = item_list.len() as u32 + 1;
 
                 item.line = linecount as u32 + 1;
 
-                item.is_completed = self.completion_done.is_match(&line);
+                item.is_completed = conf_todo.completion_done.is_match(&line);
 
                 // item.title = line[3..].to_string();
 
-                let completion_part = match self.completion_style.captures(&line) {
+                let completion_part = match conf_todo.completion_style.captures(&line) {
                     Some(part) => part[0].to_string(),
                     _ => "".to_string(),
                 };
@@ -219,14 +413,5 @@ impl TodoParser {
         }
 
         self.todo_list = item_list.clone();
-    }
-}
-
-pub enum Info {
-    Help,
-}
-pub fn print_info(arg: Info) {
-    match arg {
-        Info::Help => println!("implement a help page"),
     }
 }
