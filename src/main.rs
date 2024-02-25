@@ -1,6 +1,5 @@
 use std::env;
 mod todo; //https://doc.rust-lang.org/book/second-edition/ch07-00-modules.html
-mod tools;
 use crate::todo::*;
 
 fn main() {
