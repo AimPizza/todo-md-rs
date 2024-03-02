@@ -21,7 +21,7 @@ fn main() {
         match &operation[..] {
             "list" | "l" | "ls" => todos.list(),
             "add" | "a" => todos.add(args[2..].to_vec(), &conf_todo, &conf_file),
-            "done" | "d" => todos.done(args[2..].to_vec()),
+            "done" | "d" => todos.done(args[2..].to_vec(), &conf_file, &conf_todo),
             "remove" | "rm" => todos.remove(args[2..].to_vec(), complete_path),
             "help" => todo::print_info(todo::Info::Help),
             &_ => todo::print_info(todo::Info::Help),

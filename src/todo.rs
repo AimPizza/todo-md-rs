@@ -110,19 +110,14 @@ pub fn create_path(path: PathBuf) {
         }
     }
 }
-fn get_date() -> String {
-    let date = Local::now();
-    date.to_string()
-}
 
 #[derive(Debug, Clone)]
 pub struct TodoItem {
     pub id: u32,
     pub line: u32, // should probably be a tuple of start/end (see logseq task block would remain junk)
     pub is_completed: bool,
-    pub priority: char,
-    pub creation_date: String,
     pub title: String,
+    pub date_due: Option<NaiveDate>,
 }
 impl TodoItem {
     pub fn new() -> TodoItem {
@@ -130,26 +125,27 @@ impl TodoItem {
             id: 0,
             line: 0,
             is_completed: false,
-            priority: 'Z',
-            creation_date: get_date(),
             title: String::from(""),
+            // date_due: Some(Local::now().date_naive()),
+            date_due: None,
         }
     }
 
-    pub fn get_string(todoitem: TodoItem, parser: &TodoConfig) -> String {
+    pub fn get_string(todoitem: &TodoItem, conf_todo: &TodoConfig) -> String {
         let mut result_string = String::new();
         result_string.push_str(if todoitem.is_completed {
-            &parser.example_done
+            &conf_todo.example_done
         } else {
-            &parser.example_todo
+            &conf_todo.example_todo
         });
 
         result_string.push(' ');
-        result_string.push(todoitem.priority);
-        result_string.push(' ');
-        result_string.push_str(&todoitem.creation_date);
-        result_string.push(' ');
         result_string.push_str(&todoitem.title);
+        result_string.push(' ');
+        match &todoitem.date_due {
+            Some(date) => result_string.push_str(date.to_string().as_str()), // TODO: can this be written nicer?
+            None => result_string.push_str(""),
+        };
 
         result_string
     }
@@ -160,6 +156,7 @@ pub struct TodoConfig {
     // from TodoParser
     pub completion_style: Regex, // check if line is valid
     pub completion_done: Regex,  // check if valid line is done
+    pub date_format: Regex,
     pub example_todo: String,
     pub example_done: String,
 }
@@ -172,6 +169,7 @@ impl TodoConfig {
         let default_md: TodoConfig = TodoConfig {
             completion_style: Regex::new(r"^\s*-\s*\[[ xX]\]").unwrap(),
             completion_done: Regex::new(r"^\s*-\s*\[[^\s]\]").unwrap(),
+            date_format: Regex::new(r"(?:^|\s)(\d{4}-\d{2}-\d{2})(?:\s|$)").unwrap(),
             example_todo: String::from("- [ ]"),
             example_done: String::from("- [X]"),
         };
@@ -185,6 +183,7 @@ impl TodoConfig {
             return TodoConfig {
                 completion_style: Regex::new(r"^\s*-\s*[A-Z]{4}").unwrap(),
                 completion_done: Regex::new(r"^\s*-\s*DONE\s").unwrap(),
+                date_format: default_md.date_format,
                 example_todo: String::from("- TODO"),
                 example_done: String::from("- DONE"),
             };
@@ -215,9 +214,9 @@ pub fn print_info(arg: Info) {
 }
 
 // previous "directory" methods
-pub fn remove_lines(filepath: &PathBuf, indices: Vec<u32>) {
+pub fn remove_lines(filepath: &PathBuf, line_nr: Vec<u32>) {
     let original_content = fs::read_to_string(filepath).expect("file not found");
-    let indices_zero_indexed: Vec<u32> = indices
+    let indices_zero_indexed: Vec<u32> = line_nr
         .iter()
         .map(|&nr| if nr < 1 { nr } else { nr - 1 })
         .collect();
@@ -235,7 +234,30 @@ pub fn remove_lines(filepath: &PathBuf, indices: Vec<u32>) {
         })
         .collect();
 
-    println!("remove_lines: {:?}", indices);
+    println!("remove_lines: {:?}", line_nr);
+
+    let mut file = File::create(filepath).unwrap();
+    for line in lines {
+        let _ = writeln!(file, "{}", line);
+    }
+}
+
+pub fn change_line(filepath: &PathBuf, line_nr: u32, line_content: String) {
+    let original_content = fs::read_to_string(filepath).expect("file not found"); // TODO: is it a problem that we read to string at every call?
+    let line_nr_zero_indexed: u32 = if line_nr < 1 { line_nr } else { line_nr - 1 };
+
+    let lines: Vec<String> = original_content
+        .lines()
+        .enumerate()
+        .filter_map(|(i, line)| {
+            // catch the line to be changed
+            if i != line_nr_zero_indexed as usize {
+                Some(line.to_string()) // existed before
+            } else {
+                Some(line_content.clone()) // was changed
+            }
+        })
+        .collect();
 
     let mut file = File::create(filepath).unwrap();
     for line in lines {
@@ -259,9 +281,9 @@ pub fn read_lines(filepath: &PathBuf) -> Vec<String> {
     lines
 }
 
-pub fn export_line(filepath: &PathBuf, line: String) -> std::io::Result<()> {
+pub fn export_line(filepath: &PathBuf, line_content: String) -> std::io::Result<()> {
     let mut file = fs::OpenOptions::new().append(true).open(filepath)?;
-    file.write_all(format!("{line}\n").as_bytes())?;
+    file.write_all(format!("{line_content}\n").as_bytes())?;
 
     let _newone = fs::read_to_string(filepath).unwrap();
 
@@ -319,11 +341,11 @@ impl Todo {
                 .path
                 .todo_path
                 .join(conf_file.path.todo_filename.clone()),
-            TodoItem::get_string(todoitem, conf_todo),
+            TodoItem::get_string(&todoitem, conf_todo),
         );
     }
 
-    pub fn done(&self, indicies: Vec<String>) {
+    pub fn done(&mut self, indicies: Vec<String>, conf_file: &ConfigFile, conf_todo: &TodoConfig) {
         // keep track of task_ids to then mark as done
         let mut to_check_off: Vec<usize> = Vec::new();
 
@@ -332,12 +354,12 @@ impl Todo {
             match item.parse::<usize>() {
                 Ok(val) => {
                     println!("{item} is indeed a number");
-                    if val < self.todo_list.len() {
-                        println!("{} is now done, yay", self.todo_list[val].title);
-                        to_check_off.push(val);
+                    if val <= self.todo_list.len() && val > 0 {
+                        println!("{} is now done, yay", self.todo_list[val - 1].title); // TODO: should we really go by index or search through the vector?
+                        to_check_off.push(val - 1); // valid, can remove safely
                     } else {
                         println!("DEBUG: len is: {}", self.todo_list.len());
-                        println!("DEBUG: todo is: {:?}", self.todo_list);
+                        println!("DEBUG: todo is: {:#?}", self.todo_list);
                         println!("argument {val} is out of range");
                     }
                 }
@@ -346,11 +368,22 @@ impl Todo {
             };
         }
 
-        /*
         // act upon sanitized arguments
         for pos in to_check_off {
-            // TODO rewrite file in that position
-        } */
+            self.todo_list[pos].is_completed = true;
+            change_line(
+                &conf_file
+                    .path
+                    .todo_path
+                    .join(conf_file.path.todo_filename.clone()),
+                self.todo_list[pos].line,
+                TodoItem::get_string(&self.todo_list[pos], conf_todo),
+            )
+        }
+
+        // grab the line from todo vector
+        // todoToStr()
+        // write into file
     }
 
     // TODO notice that we're currently removing by line number not by task id
@@ -375,12 +408,13 @@ impl Todo {
         remove_lines(&path, lines_to_rm);
     }
 
+    // TODO: handle the date if it exists
     pub fn list(&self) {
-        for todoitem in &self.todo_list {
-            if todoitem.is_completed {
-                println!("[X] {} {}", todoitem.id, todoitem.title);
+        for it in &self.todo_list {
+            if it.is_completed {
+                println!("[X] {} {} {:?}", it.id, it.title, it.date_due);
             } else {
-                println!("[ ] {} {}", todoitem.id, todoitem.title);
+                println!("[ ] {} {} {:?}", it.id, it.title, it.date_due);
             }
         }
     }
@@ -391,22 +425,33 @@ impl Todo {
 
         for (linecount, line) in lines.iter().enumerate() {
             // new task detected
+            // for now, the order is so that the date (and maybe at some point tags) will be removed before feeding the rest of the line into the string
             if conf_todo.completion_style.is_match(&line) {
                 let mut item = TodoItem::new();
+                let mut l: String = line.to_string();
 
                 item.id = item_list.len() as u32 + 1;
-
                 item.line = linecount as u32 + 1;
 
-                item.is_completed = conf_todo.completion_done.is_match(&line);
-
-                // item.title = line[3..].to_string();
-
-                let completion_part = match conf_todo.completion_style.captures(&line) {
-                    Some(part) => part[0].to_string(),
-                    _ => "".to_string(),
+                item.is_completed = if conf_todo.completion_done.is_match(&line) {
+                    l = conf_todo.completion_done.replace(&l, "").to_string(); // remove the checkbox
+                    true
+                } else {
+                    l = conf_todo.completion_style.replace(&l, "").to_string(); // remove the checkbox
+                    false
                 };
-                item.title = line[completion_part.len() + 1..].to_string();
+
+                item.date_due = match conf_todo.date_format.captures(&line) {
+                    Some(date) => {
+                        l = conf_todo.date_format.replace(&l, " ").to_string(); // remove the first date and assume it's the due_date
+                        Some(date[0].parse::<NaiveDate>().unwrap())
+                    }
+                    _ => None,
+                };
+
+                item.title = l.trim().to_string(); // take what's left for the title
+
+                println!("{:#?}", item);
 
                 item_list.push(item.clone());
             }
