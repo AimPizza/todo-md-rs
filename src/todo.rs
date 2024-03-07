@@ -1,3 +1,4 @@
+use colored::{ColoredString, Colorize};
 use regex::Regex;
 use std::path::PathBuf;
 
@@ -408,14 +409,30 @@ impl Todo {
         remove_lines(&path, lines_to_rm);
     }
 
-    // TODO: handle the date if it exists
     pub fn list(&self) {
         for it in &self.todo_list {
+            let mut line: ColoredString;
+
             if it.is_completed {
-                println!("[X] {} {} {:?}", it.id, it.title, it.date_due);
+                line = format!("[x] ").into();
             } else {
-                println!("[ ] {} {} {:?}", it.id, it.title, it.date_due);
+                line = format!("[ ] ").into();
             }
+
+            line = format!("{line} {} {}", it.id, it.title).into();
+
+            match it.date_due {
+                Some(date) => {
+                    line = format!("{} {}", line, date.to_string()).cyan();
+                }
+                _ => {}
+            };
+
+            if it.is_completed {
+                line = format!("{}", line).strikethrough();
+            };
+
+            println!("{line}");
         }
     }
 
@@ -450,8 +467,6 @@ impl Todo {
                 };
 
                 item.title = l.trim().to_string(); // take what's left for the title
-
-                println!("{:#?}", item);
 
                 item_list.push(item.clone());
             }
