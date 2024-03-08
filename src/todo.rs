@@ -1,14 +1,12 @@
-use colored::{ColoredString, Colorize};
-use regex::Regex;
-use std::path::PathBuf;
-
-// testing with time crates
 use chrono::prelude::*;
+use colored::{ColoredString, Colorize};
 use dirs;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::File;
 use std::io::{self, Write};
+use std::path::PathBuf;
 use toml;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -29,8 +27,6 @@ pub struct ConfigFile {
 }
 impl ConfigFile {
     pub fn init() -> ConfigFile {
-        // BEGIN GET_CONFIG removeme
-
         // should check configuration and if that is invalid, assign arguments as default paths
         // defaults for content of config
         let mut conf = ConfigFile {
@@ -42,16 +38,16 @@ impl ConfigFile {
                 todo_filename: "todo.md".into(),
             },
         };
-        // path to the configuration file
-        let path = dirs::config_dir()
+        // default path to the configuration file
+        let path_to_conf = dirs::config_dir()
             .expect("config dir error")
             .join(PathBuf::from("todo-md-rs"))
             .join(PathBuf::from("config.toml"));
 
         // check if configuration can be found
-        if check_for_dir(path.clone()) {
+        if check_dir_exists(path_to_conf.clone()) {
             // config found
-            let contents: String = fs::read_to_string(path).unwrap();
+            let contents: String = fs::read_to_string(&path_to_conf).unwrap();
             conf = match toml::from_str(&contents) {
                 Ok(content) => content,
                 Err(_e) => {
@@ -63,33 +59,50 @@ impl ConfigFile {
             };
         } else {
             // config not found
-            match readinput("create base configuraton file? (y/n): ")
+            match readinput("create base configuraton file? ( [y]es / [n]o ): ")
                 .expect("input failed")
                 .as_str()
             {
                 // create file and write defaults into it
                 "y" => {
-                    create_path(path.clone());
+                    create_path(&path_to_conf);
 
-                    let _ = export_line(&path, toml::to_string(&conf).unwrap());
+                    let _ = export_line(&path_to_conf, toml::to_string(&conf).unwrap(), false);
                 }
                 _ => {
-                    println!("using temporary path"); // configuration should not have changed from the initialization
+                    println!("using temporary path");
                     let toml = toml::to_string(&conf).unwrap();
                     println!("{toml:#?}");
                 }
             }
         }
-        // END GET_CONFIG removeme
 
-        let unified_path: PathBuf = conf.path.todo_path.join(conf.path.todo_filename.clone());
+        // onto checking for the todo.md file itself
 
-        while !check_for_dir(unified_path.clone()) {
-            match readinput(format!("create {} ? (y/n)", unified_path.display()).as_str())
-                .expect("input failed")
-                .as_str()
+        let mut unified_path: PathBuf = conf.path.todo_path.join(conf.path.todo_filename.clone());
+
+        while !check_dir_exists(unified_path.clone()) {
+            match readinput(&format!(
+                "create {} ?\n( [y]es / [n]o / [c]hange ):",
+                unified_path.display()
+            ))
+            .expect("input failed")
+            .as_str()
             {
-                "y" => create_path(unified_path.clone()),
+                "y" => create_path(&unified_path),
+                "c" => {
+                    println!("so you want to change?");
+                    let new_path = PathBuf::from(
+                        readinput("desired path to todo.md file (including filename): ").unwrap(),
+                    );
+                    conf.path.todo_filename = new_path.into_iter().last().unwrap().into();
+                    conf.path.todo_path = new_path.parent().unwrap().into();
+                    unified_path = conf.path.todo_path.join(conf.path.todo_filename.clone());
+                    // create the todo.md file
+                    create_path(&unified_path);
+                    // update the config file
+                    let _ = export_line(&path_to_conf, toml::to_string(&conf).unwrap(), false);
+                }
                 _ => panic!("user refused"),
             }
         }
@@ -97,8 +110,9 @@ impl ConfigFile {
     }
 }
 
-pub fn create_path(path: PathBuf) {
-    match check_for_dir(path.clone()) {
+// creates file and parent path
+pub fn create_path(path: &PathBuf) {
+    match check_dir_exists(path.clone()) {
         false => {
             if let Some(parent) = path.parent() {
                 let _ = std::fs::create_dir_all(parent);
@@ -127,7 +141,6 @@ impl TodoItem {
             line: 0,
             is_completed: false,
             title: String::from(""),
-            // date_due: Some(Local::now().date_naive()),
             date_due: None,
         }
     }
@@ -154,7 +167,6 @@ impl TodoItem {
 
 // TODO: not respecting config yet
 pub struct TodoConfig {
-    // from TodoParser
     pub completion_style: Regex, // check if line is valid
     pub completion_done: Regex,  // check if valid line is done
     pub date_format: Regex,
@@ -162,10 +174,6 @@ pub struct TodoConfig {
     pub example_done: String,
 }
 impl TodoConfig {
-    //
-    // converted
-    //
-
     pub fn new(conf_file: &ConfigFile) -> TodoConfig {
         let default_md: TodoConfig = TodoConfig {
             completion_style: Regex::new(r"^\s*-\s*\[[ xX]\]").unwrap(),
@@ -195,14 +203,6 @@ impl TodoConfig {
             return default_md;
         }
     }
-
-    //
-    // from TodoHandler
-    //
-
-    //
-    // from TodoParser
-    //
 }
 
 pub enum Info {
@@ -214,7 +214,6 @@ pub fn print_info(arg: Info) {
     }
 }
 
-// previous "directory" methods
 pub fn remove_lines(filepath: &PathBuf, line_nr: Vec<u32>) {
     let original_content = fs::read_to_string(filepath).expect("file not found");
     let indices_zero_indexed: Vec<u32> = line_nr
@@ -273,17 +272,15 @@ pub fn read_lines(filepath: &PathBuf) -> Vec<String> {
     for line in file.lines() {
         lines.push(line.to_string())
     }
-    // for line in file.lines() {
-    //     parser
-    //         .todo_list
-    //         .push(parser.string_to_todo(line.to_string()));
-    //     println!("{line}");
-    // }
+
     lines
 }
 
-pub fn export_line(filepath: &PathBuf, line_content: String) -> std::io::Result<()> {
-    let mut file = fs::OpenOptions::new().append(true).open(filepath)?;
+pub fn export_line(filepath: &PathBuf, line_content: String, append: bool) -> std::io::Result<()> {
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .append(append)
+        .open(filepath)?;
     file.write_all(format!("{line_content}\n").as_bytes())?;
 
     let _newone = fs::read_to_string(filepath).unwrap();
@@ -291,7 +288,7 @@ pub fn export_line(filepath: &PathBuf, line_content: String) -> std::io::Result<
     Ok(())
 }
 
-pub fn check_for_dir(path: PathBuf) -> bool {
+pub fn check_dir_exists(path: PathBuf) -> bool {
     match path.try_exists() {
         Ok(true) => {
             // just return true?
@@ -308,6 +305,7 @@ pub fn check_for_dir(path: PathBuf) -> bool {
         }
     }
 }
+// read some string from the command line as user input
 pub fn readinput(prompt: &str) -> io::Result<String> {
     let mut buffer = String::new();
     print!("{prompt}");
@@ -343,6 +341,7 @@ impl Todo {
                 .todo_path
                 .join(conf_file.path.todo_filename.clone()),
             TodoItem::get_string(&todoitem, conf_todo),
+            true,
         );
     }
 
@@ -354,7 +353,6 @@ impl Todo {
         for item in indicies {
             match item.parse::<usize>() {
                 Ok(val) => {
-                    println!("{item} is indeed a number");
                     if val <= self.todo_list.len() && val > 0 {
                         println!("{} is now done, yay", self.todo_list[val - 1].title); // TODO: should we really go by index or search through the vector?
                         to_check_off.push(val - 1); // valid, can remove safely
@@ -381,10 +379,6 @@ impl Todo {
                 TodoItem::get_string(&self.todo_list[pos], conf_todo),
             )
         }
-
-        // grab the line from todo vector
-        // todoToStr()
-        // write into file
     }
 
     // TODO notice that we're currently removing by line number not by task id
