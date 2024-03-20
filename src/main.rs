@@ -1,10 +1,40 @@
-use std::env;
-mod todo; //https://doc.rust-lang.org/book/second-edition/ch07-00-modules.html
+mod todo;
 use crate::todo::*;
+use clap::{Parser, Subcommand};
+
+#[derive(Parser, Debug)]
+struct Args {
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Debug, Subcommand)]
+enum Commands {
+    /// lists all tasks
+    #[clap(alias = "ls")]
+    List {},
+    /// adds a task
+    #[clap(alias = "a")]
+    Add {
+        /// title and other properties of the task to be added
+        content: Vec<String>,
+    },
+    /// remove one or more tasks
+    #[clap(alias = "rm")]
+    Remove {
+        /// IDs of the tasks to remove
+        ids: Vec<usize>,
+    },
+    /// check off a task
+    #[clap(alias = "d")]
+    Done {
+        /// IDs of the tasks to mark as done
+        ids: Vec<usize>,
+    },
+}
 
 fn main() {
-    // get arguments
-    let args: Vec<String> = env::args().collect();
+    let args = Args::parse();
 
     // set up the configuration
     let conf_file: ConfigFile = ConfigFile::init();
@@ -15,18 +45,13 @@ fn main() {
     let mut todos = Todo::new(); // get empty parser
     todos.strings_to_todo(read_lines(&complete_path), &conf_todo); // populate parser
 
-    // process arguments
-    if args.len() > 1 {
-        let operation = &args[1];
-        match &operation[..] {
-            "list" | "l" | "ls" => todos.list(),
-            "add" | "a" => todos.add(args[2..].to_vec(), &conf_todo, &conf_file),
-            "done" | "d" => todos.done(args[2..].to_vec(), &conf_file, &conf_todo),
-            "remove" | "rm" => todos.remove(args[2..].to_vec(), complete_path),
-            "help" => todo::print_info(todo::Info::Help),
-            &_ => todo::print_info(todo::Info::Help),
+    match &args.command {
+        Some(Commands::List {}) => todos.list(),
+        Some(Commands::Add { content }) => todos.add(content, &conf_todo, &conf_file),
+        Some(Commands::Remove { ids }) => todos.remove(ids, complete_path),
+        Some(Commands::Done { ids }) => todos.done(ids, &conf_file, &conf_todo),
+        None => {
+            println!("no command entered")
         }
-    } else {
-        todos.list();
     }
 }

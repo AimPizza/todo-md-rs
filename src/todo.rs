@@ -128,8 +128,8 @@ pub fn create_path(path: &PathBuf) {
 
 #[derive(Debug, Clone)]
 pub struct TodoItem {
-    pub id: u32,
-    pub line: u32, // should probably be a tuple of start/end (see logseq task block would remain junk)
+    pub id: usize,
+    pub line: usize, // should probably be a tuple of start/end (see logseq task block would remain junk)
     pub is_completed: bool,
     pub title: String,
     pub date_due: Option<NaiveDate>,
@@ -205,18 +205,9 @@ impl TodoConfig {
     }
 }
 
-pub enum Info {
-    Help,
-}
-pub fn print_info(arg: Info) {
-    match arg {
-        Info::Help => println!("implement a help page"),
-    }
-}
-
-pub fn remove_lines(filepath: &PathBuf, line_nr: Vec<u32>) {
+pub fn remove_lines(filepath: &PathBuf, line_nr: Vec<usize>) {
     let original_content = fs::read_to_string(filepath).expect("file not found");
-    let indices_zero_indexed: Vec<u32> = line_nr
+    let indices_zero_indexed: Vec<usize> = line_nr
         .iter()
         .map(|&nr| if nr < 1 { nr } else { nr - 1 })
         .collect();
@@ -226,7 +217,7 @@ pub fn remove_lines(filepath: &PathBuf, line_nr: Vec<u32>) {
         .enumerate()
         .filter_map(|(i, line)| {
             // line number is 1-indexed but we'll remove by counting 0-indexed
-            if !indices_zero_indexed.contains(&(i as u32)) {
+            if !indices_zero_indexed.contains(&i) {
                 Some(line.to_string())
             } else {
                 None
@@ -242,9 +233,9 @@ pub fn remove_lines(filepath: &PathBuf, line_nr: Vec<u32>) {
     }
 }
 
-pub fn change_line(filepath: &PathBuf, line_nr: u32, line_content: String) {
+pub fn change_line(filepath: &PathBuf, line_nr: usize, line_content: String) {
     let original_content = fs::read_to_string(filepath).expect("file not found"); // TODO: is it a problem that we read to string at every call?
-    let line_nr_zero_indexed: u32 = if line_nr < 1 { line_nr } else { line_nr - 1 };
+    let line_nr_zero_indexed: usize = if line_nr < 1 { line_nr } else { line_nr - 1 };
 
     let lines: Vec<String> = original_content
         .lines()
@@ -328,7 +319,7 @@ impl Todo {
         }
     }
 
-    pub fn add(&self, input_content: Vec<String>, conf_todo: &TodoConfig, conf_file: &ConfigFile) {
+    pub fn add(&self, input_content: &Vec<String>, conf_todo: &TodoConfig, conf_file: &ConfigFile) {
         let mut todoitem: TodoItem = TodoItem::new();
 
         let title = input_content.join(" ").trim().to_string();
@@ -345,26 +336,20 @@ impl Todo {
         );
     }
 
-    pub fn done(&mut self, indicies: Vec<String>, conf_file: &ConfigFile, conf_todo: &TodoConfig) {
+    pub fn done(&mut self, indicies: &Vec<usize>, conf_file: &ConfigFile, conf_todo: &TodoConfig) {
         // keep track of task_ids to then mark as done
         let mut to_check_off: Vec<usize> = Vec::new();
 
-        // iterate arguments and sanitize
+        // iterate arguments and sanitize; they should all already be valid unsigned integers due to clap
         for item in indicies {
-            match item.parse::<usize>() {
-                Ok(val) => {
-                    if val <= self.todo_list.len() && val > 0 {
-                        println!("{} is now done, yay", self.todo_list[val - 1].title); // TODO: should we really go by index or search through the vector?
-                        to_check_off.push(val - 1); // valid, can remove safely
-                    } else {
-                        println!("DEBUG: len is: {}", self.todo_list.len());
-                        println!("DEBUG: todo is: {:#?}", self.todo_list);
-                        println!("argument {val} is out of range");
-                    }
-                }
-                // just skip invalid arguments
-                Err(_) => println!("{item} is not a valid number"),
-            };
+            if item <= &self.todo_list.len() && item > &0 {
+                println!("{} is now done, yay", self.todo_list[item - 1].title); // TODO: should we really go by index or search through the vector?
+                to_check_off.push(item - 1); // valid, can remove safely
+            } else {
+                println!("DEBUG: len is: {}", self.todo_list.len());
+                println!("DEBUG: todo is: {:#?}", self.todo_list);
+                println!("argument {item} is out of range");
+            }
         }
 
         // act upon sanitized arguments
@@ -382,21 +367,13 @@ impl Todo {
     }
 
     // TODO notice that we're currently removing by line number not by task id
-    pub fn remove(&self, id: Vec<String>, path: PathBuf) {
-        // sanitize the given arguments
-        let mut sanitized_ids: Vec<u32> = Vec::new();
-        for item in id {
-            match item.parse::<u32>() {
-                Ok(number) => sanitized_ids.push(number),
-                Err(_) => continue,
-            }
-        }
-        println!("removing task with IDs: {:?}", sanitized_ids);
+    pub fn remove(&self, ids: &Vec<usize>, path: PathBuf) {
+        println!("removing task with IDs: {:?}", ids);
 
         // delete those tasks
-        let mut lines_to_rm: Vec<u32> = Vec::new();
+        let mut lines_to_rm: Vec<usize> = Vec::new();
         for item in &self.todo_list {
-            if sanitized_ids.contains(&item.id) {
+            if ids.contains(&item.id) {
                 lines_to_rm.push(item.line)
             }
         }
@@ -441,8 +418,8 @@ impl Todo {
                 let mut item = TodoItem::new();
                 let mut l: String = line.to_string();
 
-                item.id = item_list.len() as u32 + 1;
-                item.line = linecount as u32 + 1;
+                item.id = item_list.len() + 1;
+                item.line = linecount + 1;
 
                 item.is_completed = if conf_todo.completion_done.is_match(&line) {
                     l = conf_todo.completion_done.replace(&l, "").to_string(); // remove the checkbox
