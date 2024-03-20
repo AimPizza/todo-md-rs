@@ -185,17 +185,17 @@ impl TodoConfig {
 
         // Markdown style
         if conf_file.format.checkbox_style == "md" {
-            return default_md;
+            default_md
         }
         // Logseq style
         else if conf_file.format.checkbox_style == "logseq" {
-            return TodoConfig {
+            TodoConfig {
                 completion_style: Regex::new(r"^\s*-\s*[A-Z]{4}").unwrap(),
                 completion_done: Regex::new(r"^\s*-\s*DONE\s").unwrap(),
                 date_format: default_md.date_format,
                 example_todo: String::from("- TODO"),
                 example_done: String::from("- DONE"),
-            };
+            }
         }
         // default to Markdown
         else {

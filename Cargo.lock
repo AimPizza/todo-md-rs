@@ -713,7 +713,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "todoapp"
+name = "todo-md-rs"
 version = "0.1.0"
 dependencies = [
  "chrono",

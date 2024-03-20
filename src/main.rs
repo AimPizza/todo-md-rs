@@ -50,8 +50,6 @@ fn main() {
         Some(Commands::Add { content }) => todos.add(content, &conf_todo, &conf_file),
         Some(Commands::Remove { ids }) => todos.remove(ids, complete_path),
         Some(Commands::Done { ids }) => todos.done(ids, &conf_file, &conf_todo),
-        None => {
-            println!("no command entered")
-        }
+        None => todos.list(),
     }
 }

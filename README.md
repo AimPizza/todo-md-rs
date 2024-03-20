@@ -10,12 +10,12 @@ the following parameters are allowed:
 
 ```toml
 [path]
-todo_path = "/home/user/"
+todo_path = "/home/username/"
 todo_filename = "todo.md"
 
 [format]
-# possible formats: "logseq", "md"
-checkbox_style = "logseq"
+# possible formats: "logseq", "md" (default)
+checkbox_style = "md"
 
 ```
 # Thoughts
@@ -28,7 +28,7 @@ This program should fulfill certian requirements:
 
 thoughts (feel free to discuss these decisions):
 
-- tasks with hypehns `-` only wouldn't make sense in the context of note-taking since they stand for a bullet point so they're not respected as a task.  
+- tasks with hypehns `-` only wouldn't make sense in the context of note-taking since they stand for a bullet point so they're not respected as a task. This deviates from todo.md spec.  
 
 
 how does it work?
@@ -38,6 +38,9 @@ how does it work?
 
 # Features TODO
 
-- [ ] CURSES-like UI
+- [x] nicer UI
 - [ ] contrasting actions ( _un_done )
-- [ ] the sections from TODO.md
+- [ ] comply with [todo.md](https://github.com/todomd/todo.md)
+  - [ ] implement sections / heading parsing
+  - [ ] handle @tags and #types
+- [ ] package for Distros (AUR and nixpkgs is the goal for now)
