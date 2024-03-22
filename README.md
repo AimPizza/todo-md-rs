@@ -1,3 +1,26 @@
+# Installation
+
+this will compile a binary to `~/.cargo/bin` which needs to be in your `$PATH` 
+```shell
+git clone git@github.com:AimPizza/todo-md-rs.git
+cd todo-md-rs
+cargo install --path=.
+```
+# Usage
+
+```shell
+# list everything you need to know
+todo --help
+# list your tasks
+todo
+# add a task
+todo add show readers how to use this tool
+# mark a task as done
+todo done 1
+# delete a task
+todo remove 1
+```
+
 # Configuration
 
 Upon launching the program for the first time it will ask you whether it should create a configuration file in $HOME/.config/todo-md-rs/.
