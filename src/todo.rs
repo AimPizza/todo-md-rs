@@ -225,8 +225,6 @@ pub fn remove_lines(filepath: &PathBuf, line_nr: Vec<usize>) {
         })
         .collect();
 
-    println!("remove_lines: {:?}", line_nr);
-
     let mut file = File::create(filepath).unwrap();
     for line in lines {
         let _ = writeln!(file, "{}", line);
@@ -320,20 +318,24 @@ impl Todo {
     }
 
     pub fn add(&self, input_content: &Vec<String>, conf_todo: &TodoConfig, conf_file: &ConfigFile) {
-        let mut todoitem: TodoItem = TodoItem::new();
+        let mut item: TodoItem = TodoItem::new();
+
+        item.id = self.todo_list.len() + 1;
 
         let title = input_content.join(" ").trim().to_string();
-        println!("adding task: {}", title);
-        todoitem.title = title;
-        // write item into file
+        println!("adding task:");
+        item.title = title;
+
         let _ = export_line(
             &conf_file
                 .path
                 .todo_path
                 .join(conf_file.path.todo_filename.clone()),
-            TodoItem::get_string(&todoitem, conf_todo),
+            TodoItem::get_string(&item, conf_todo),
             true,
         );
+
+        Self::list_single(&item);
     }
 
     pub fn done(&mut self, indicies: &Vec<usize>, conf_file: &ConfigFile, conf_todo: &TodoConfig) {
@@ -343,16 +345,13 @@ impl Todo {
         // iterate arguments and sanitize; they should all already be valid unsigned integers due to clap
         for item in indicies {
             if item <= &self.todo_list.len() && item > &0 {
-                println!("{} is now done, yay", self.todo_list[item - 1].title); // TODO: should we really go by index or search through the vector?
                 to_check_off.push(item - 1); // valid, can remove safely
             } else {
-                println!("DEBUG: len is: {}", self.todo_list.len());
-                println!("DEBUG: todo is: {:#?}", self.todo_list);
                 println!("argument {item} is out of range");
             }
         }
 
-        // act upon sanitized arguments
+        // write into file and list them
         for pos in to_check_off {
             self.todo_list[pos].is_completed = true;
             change_line(
@@ -362,48 +361,56 @@ impl Todo {
                     .join(conf_file.path.todo_filename.clone()),
                 self.todo_list[pos].line,
                 TodoItem::get_string(&self.todo_list[pos], conf_todo),
-            )
+            );
+
+            Self::list_single(&self.todo_list[pos]);
         }
     }
 
     // TODO notice that we're currently removing by line number not by task id
+    // TODO: implement confirmation before deleting them
     pub fn remove(&self, ids: &Vec<usize>, path: PathBuf) {
-        println!("removing task with IDs: {:?}", ids);
+        println!("removing the following task(s):");
 
         // delete those tasks
         let mut lines_to_rm: Vec<usize> = Vec::new();
         for item in &self.todo_list {
             if ids.contains(&item.id) {
-                lines_to_rm.push(item.line)
+                lines_to_rm.push(item.line);
+                Self::list_single(&item);
             }
         }
         remove_lines(&path, lines_to_rm);
     }
 
-    pub fn list(&self) {
-        for it in &self.todo_list {
-            let mut line: ColoredString;
+    fn list_single(item: &TodoItem) {
+        let mut line: ColoredString;
 
-            if it.is_completed {
-                line = format!("[x] ").into();
-            } else {
-                line = format!("[ ] ").into();
+        if item.is_completed {
+            line = format!("[x] ").into();
+        } else {
+            line = format!("[ ] ").into();
+        }
+
+        line = format!("{line} {} {}", item.id, item.title).into();
+
+        match item.date_due {
+            Some(date) => {
+                line = format!("{} {}", line, date.to_string()).cyan();
             }
+            _ => {}
+        };
 
-            line = format!("{line} {} {}", it.id, it.title).into();
+        if item.is_completed {
+            line = format!("{}", line).strikethrough();
+        };
 
-            match it.date_due {
-                Some(date) => {
-                    line = format!("{} {}", line, date.to_string()).cyan();
-                }
-                _ => {}
-            };
+        println!("{line}");
+    }
 
-            if it.is_completed {
-                line = format!("{}", line).strikethrough();
-            };
-
-            println!("{line}");
+    pub fn list_all(&self) {
+        for it in &self.todo_list {
+            Todo::list_single(it);
         }
     }
 

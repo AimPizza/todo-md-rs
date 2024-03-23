@@ -46,10 +46,10 @@ fn main() {
     todos.strings_to_todo(read_lines(&complete_path), &conf_todo); // populate parser
 
     match &args.command {
-        Some(Commands::List {}) => todos.list(),
+        Some(Commands::List {}) => todos.list_all(),
         Some(Commands::Add { content }) => todos.add(content, &conf_todo, &conf_file),
         Some(Commands::Remove { ids }) => todos.remove(ids, complete_path),
         Some(Commands::Done { ids }) => todos.done(ids, &conf_file, &conf_todo),
-        None => todos.list(),
+        None => todos.list_all(),
     }
 }
