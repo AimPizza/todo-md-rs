@@ -52,6 +52,7 @@ This program should fulfill certian requirements:
 thoughts (feel free to discuss these decisions):
 
 - tasks with hypehns `-` only wouldn't make sense in the context of note-taking since they stand for a bullet point so they're not respected as a task. This deviates from todo.md spec.  
+- `done` acts as `uncheck` for tasks that are already done. This helps with ease of use.
 
 
 how does it work?
@@ -62,7 +63,7 @@ how does it work?
 # Features TODO
 
 - [x] nicer UI
-- [ ] contrasting actions ( _un_done )
+- [x] contrasting actions ( uncheck )
 - [ ] comply with [todo.md](https://github.com/todomd/todo.md)
   - [ ] implement sections / heading parsing
   - [ ] handle @tags and #types

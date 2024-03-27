@@ -26,9 +26,16 @@ enum Commands {
         ids: Vec<usize>,
     },
     /// check off a task
+    /// TODO: this should also be a shorthand to uncheck if task is already done
     #[clap(alias = "d")]
     Done {
-        /// IDs of the tasks to mark as done
+        /// IDs of the tasks to mark done
+        ids: Vec<usize>,
+    },
+    /// uncheck a task that is already done
+    #[clap(alias = "u")]
+    Uncheck {
+        /// IDs of the tasks to mark todo
         ids: Vec<usize>,
     },
 }
@@ -50,6 +57,7 @@ fn main() {
         Some(Commands::Add { content }) => todos.add(content, &conf_todo, &conf_file),
         Some(Commands::Remove { ids }) => todos.remove(ids, complete_path),
         Some(Commands::Done { ids }) => todos.done(ids, &conf_file, &conf_todo),
+        Some(Commands::Uncheck { ids }) => todos.uncheck(ids, &conf_file, &conf_todo),
         None => todos.list_all(),
     }
 }

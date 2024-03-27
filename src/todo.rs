@@ -339,21 +339,63 @@ impl Todo {
     }
 
     pub fn done(&mut self, indicies: &Vec<usize>, conf_file: &ConfigFile, conf_todo: &TodoConfig) {
-        // keep track of task_ids to then mark as done
+        // to keep track of valid ids
         let mut to_check_off: Vec<usize> = Vec::new();
+        let mut to_uncheck: Vec<usize> = Vec::new();
 
         // iterate arguments and sanitize; they should all already be valid unsigned integers due to clap
         for item in indicies {
             if item <= &self.todo_list.len() && item > &0 {
-                to_check_off.push(item - 1); // valid, can remove safely
+                // valid, can remove safely
+                if self.todo_list[item - 1].is_completed {
+                    to_uncheck.push(item - 1);
+                } else {
+                    to_check_off.push(item - 1);
+                }
             } else {
                 println!("argument {item} is out of range");
             }
         }
 
         // write into file and list them
+        println!("now done:");
         for pos in to_check_off {
             self.todo_list[pos].is_completed = true;
+            change_line(
+                &conf_file
+                    .path
+                    .todo_path
+                    .join(conf_file.path.todo_filename.clone()),
+                self.todo_list[pos].line,
+                TodoItem::get_string(&self.todo_list[pos], conf_todo),
+            );
+
+            Self::list_single(&self.todo_list[pos]);
+        }
+
+        // send those to uncheck
+        if to_uncheck.len() > 0 {
+            self.uncheck(&to_uncheck, conf_file, conf_todo)
+        };
+        // TODO: finish this, probably buggy
+    }
+
+    // TODO: duplicates code from done(), could probably be simpler
+    pub fn uncheck(&mut self, ids: &Vec<usize>, conf_file: &ConfigFile, conf_todo: &TodoConfig) {
+        // to store sanitized ids
+        let mut to_uncheck: Vec<usize> = Vec::new();
+        // sanitize
+        for item in ids {
+            if item <= &self.todo_list.len() && item > &0 {
+                to_uncheck.push(*item); // valid, can remove safely
+            } else {
+                println!("argument {item} is out of range");
+            }
+        }
+        // write into file and list them
+        println!("unchecked:");
+        for pos in to_uncheck {
+            self.todo_list[pos].is_completed = false;
             change_line(
                 &conf_file
                     .path
