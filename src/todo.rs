@@ -348,7 +348,7 @@ impl Todo {
             if item <= &self.todo_list.len() && item > &0 {
                 // valid, can remove safely
                 if self.todo_list[item - 1].is_completed {
-                    to_uncheck.push(item - 1);
+                    to_uncheck.push(*item);
                 } else {
                     to_check_off.push(item - 1);
                 }
@@ -387,7 +387,7 @@ impl Todo {
         // sanitize
         for item in ids {
             if item <= &self.todo_list.len() && item > &0 {
-                to_uncheck.push(*item); // valid, can remove safely
+                to_uncheck.push(item - 1); // valid, can remove safely
             } else {
                 println!("argument {item} is out of range");
             }
