@@ -25,6 +25,7 @@ todo remove 1
 
 Upon launching the program for the first time it will ask you whether it should create a configuration file in $HOME/.config/todo-md-rs/.
 the following parameters are allowed:
+
 | parameter | value | explanation |
 | --- | --- | --- |
 | todo_path | some valid path | where your todo file will be located |
@@ -62,9 +63,10 @@ how does it work?
 
 # Features TODO
 
-- [x] nicer UI
+- [ ] nicer UI
+  - [ ] display tags and assigned names
 - [x] contrasting actions ( uncheck )
 - [ ] comply with [todo.md](https://github.com/todomd/todo.md)
   - [ ] implement sections / heading parsing
-  - [ ] handle @tags and #types
+  - [x] handle @name and #tags
 - [ ] package for Distros (AUR and nixpkgs is the goal for now)

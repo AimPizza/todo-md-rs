@@ -133,6 +133,8 @@ pub struct TodoItem {
     pub is_completed: bool,
     pub title: String,
     pub date_due: Option<NaiveDate>,
+    pub tags: Vec<String>,
+    pub names: Vec<String>,
 }
 impl TodoItem {
     pub fn new() -> TodoItem {
@@ -142,6 +144,8 @@ impl TodoItem {
             is_completed: false,
             title: String::from(""),
             date_due: None,
+            tags: Vec::new(),
+            names: Vec::new(),
         }
     }
 
@@ -457,41 +461,64 @@ impl Todo {
     }
 
     // TODO: complete this method to include all the other fields of Todo
+    /// Parses a Vec of raw Strings and writes them into the Todo container
     pub fn strings_to_todo(&mut self, lines: Vec<String>, conf_todo: &TodoConfig) {
         let mut item_list: Vec<TodoItem> = Vec::new();
 
         for (linecount, line) in lines.iter().enumerate() {
-            // new task detected
-            // for now, the order is so that the date (and maybe at some point tags) will be removed before feeding the rest of the line into the string
+            // - task detected by completion pattern -
+            // for now, the order is so that the date (and maybe at some point tags) will be removed before
+            // feeding the rest of the line into the string
             if conf_todo.completion_style.is_match(&line) {
                 let mut item = TodoItem::new();
-                let mut l: String = line.to_string();
+                let mut l_mut: String = line.to_string();
 
+                // ID and LINE, duh
                 item.id = item_list.len() + 1;
                 item.line = linecount + 1;
 
+                // COMPLETION
                 item.is_completed = if conf_todo.completion_done.is_match(&line) {
-                    l = conf_todo.completion_done.replace(&l, "").to_string(); // remove the checkbox
+                    l_mut = conf_todo.completion_done.replace(&l_mut, "").into(); // remove the checkbox
                     true
                 } else {
-                    l = conf_todo.completion_style.replace(&l, "").to_string(); // remove the checkbox
+                    l_mut = conf_todo.completion_style.replace(&l_mut, "").into(); // remove the checkbox
                     false
                 };
 
+                // DATE
                 item.date_due = match conf_todo.date_format.captures(&line) {
                     Some(date) => {
-                        l = conf_todo.date_format.replace(&l, " ").to_string(); // remove the first date and assume it's the due_date
+                        l_mut = conf_todo.date_format.replace(&l_mut, " ").into(); // remove the first date and assume it's the due_date
                         Some(date[0].parse::<NaiveDate>().unwrap())
                     }
                     _ => None,
                 };
 
-                item.title = l.trim().to_string(); // take what's left for the title
+                // TAG
+                let tag_re = Regex::new(r"#\w+").unwrap();
+                tag_re
+                    .captures_iter(&line)
+                    .map(|captures| captures.get(0).unwrap().as_str())
+                    .for_each(|tag| item.tags.push(tag.into()));
+                l_mut = tag_re.replace_all(&l_mut, "").into();
+
+                // NAME
+                let name_re = Regex::new(r"@\w+").unwrap();
+                name_re
+                    .captures_iter(&line)
+                    .map(|captures| captures.get(0).unwrap().as_str())
+                    .for_each(|name| item.names.push(name.into()));
+                l_mut = name_re.replace_all(&l_mut, "").into();
+
+                // TITLE
+                item.title = l_mut.trim().to_string(); // take what's left for the title
 
                 item_list.push(item.clone());
             }
         }
 
         self.todo_list = item_list.clone();
+        dbg!(&self.todo_list);
     }
 }
