@@ -9,12 +9,12 @@ cargo install --path=.
 # Usage
 
 ```shell
-# list everything you need to know
+# list everything (more than listed here)
 todo --help
 # list your tasks
 todo
 # add a task
-todo add show readers how to use this tool
+todo add "show readers how to use this tool"
 # mark a task as done
 todo done 1
 # delete a task
@@ -40,8 +40,8 @@ todo_filename = "todo.md"
 [format]
 # possible formats: "logseq", "md" (default)
 checkbox_style = "md"
-
 ```
+
 # Thoughts
 This program should fulfill certian requirements:
 
@@ -63,10 +63,13 @@ how does it work?
 
 # Features TODO
 
-- [ ] nicer UI
-  - [ ] display tags and assigned names
+- [x] nicer UI
+  - [x] display tags and assigned names
 - [x] contrasting actions ( uncheck )
 - [ ] comply with [todo.md](https://github.com/todomd/todo.md)
   - [ ] implement sections / heading parsing
   - [x] handle @name and #tags
 - [ ] package for Distros (AUR and nixpkgs is the goal for now)
+- [ ] not to overbloat things but now that I finish more and more features, I'd like to dream of things like:
+  - [ ] CalDAV 
+  - [ ] gui app

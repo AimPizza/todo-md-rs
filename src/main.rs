@@ -50,7 +50,7 @@ fn main() {
 
     // get the todos
     let mut todos = Todo::new(); // get empty parser
-    todos.strings_to_todo(read_lines(&complete_path), &conf_todo); // populate parser
+    todos.todo_list = strings_to_todo(read_lines(&complete_path), &conf_todo); // populate parser
 
     match &args.command {
         Some(Commands::List {}) => todos.list_all(),
