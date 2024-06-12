@@ -43,23 +43,24 @@ checkbox_style = "md"
 ```
 
 # Thoughts
+
 This program should fulfill certian requirements:
 
 - store tasks in a simple file format (.md)  
 - allow integration with other note-taking apps such as Obsidian or [Logseq](https://github.com/logseq/logseq) (suggestions welcome)  
-- should do what it does safely/easily and nothing unnessecary  
+- should do what it does safely/easily and nothing unnessecary
+- by default, the program should comply with standards
+  - however, as workflows can be very different, the possibility to customize aspects should be given
 
+# Decisions
 
-thoughts (feel free to discuss these decisions):
+> Feel free to discuss those. I am always open for suggestions/help.
 
-- tasks with hypehns `-` only wouldn't make sense in the context of note-taking since they stand for a bullet point so they're not respected as a task. This deviates from todo.md spec.  
-- `done` acts as `uncheck` for tasks that are already done. This helps with ease of use.
-
-
-how does it work?
-
-- Lines from a todo_file are read and evaluated at runtime. The IDs are generated only then.
-  - this approach is prone to user error as they can accidentally remove tasks with the wrong ID. (open for a better solution)
+- **This deviates from todo.md spec**: Tasks with only hypehns, not checkboxes, wouldn't make sense in the context of note-taking since they would stand for a bullet point. I therefore chose not to respect them as a task. Changing this behaviour would require a bit of work.
+- `done` acts as `uncheck` for tasks that are already done. I hope this helps with ease of use instead of creating confusion, although a settings parameter would be possible to implement.
+- Lines from a todo_file are read and evaluated at runtime. The IDs are generated only then, they might change after adding/removing a task.
+  - This approach is prone to user error as users could accidentally remove tasks with the wrong ID.
+  - If you choose to list tasks and then act upon the listed IDs, the operation should be succesful, though.
 
 # Features TODO
 
