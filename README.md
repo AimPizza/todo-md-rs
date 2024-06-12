@@ -63,9 +63,14 @@ how does it work?
 
 # Features TODO
 
+- [ ] tests / code improvement
+  - [ ] a simple test adding a task with all parameters
+  - [ ] when adding a new command, one has to add code in multiple places ( get_string, strings_to_todo, list_single and mby more ). This creates multiple places for bugs to occur.
 - [x] nicer UI
   - [x] display tags and assigned names
-- [x] contrasting actions ( uncheck )
+- [ ] config options
+  - [ ] ignore confirmations (don't prompt before removing task)
+- [x] contrasting actions ( add/remove, done/uncheck )
 - [ ] comply with [todo.md](https://github.com/todomd/todo.md)
   - [ ] implement sections / heading parsing
   - [x] handle @name and #tags

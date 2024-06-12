@@ -26,9 +26,9 @@ pub struct ConfigFile {
     pub format: TodoFormatting,
 }
 impl ConfigFile {
+    /// Check config. If config is invalid, either use defaults or let user configure manually.
     pub fn init() -> ConfigFile {
-        // should check configuration and if that is invalid, assign arguments as default paths
-        // defaults for content of config
+        // setting some defaults
         let mut conf = ConfigFile {
             format: TodoFormatting {
                 checkbox_style: "md".to_string(),
@@ -38,35 +38,28 @@ impl ConfigFile {
                 todo_filename: "todo.md".into(),
             },
         };
-        // default path to the configuration file
         let path_to_conf = dirs::config_dir()
             .expect("config dir error")
             .join(PathBuf::from("todo-md-rs"))
             .join(PathBuf::from("config.toml"));
 
-        // check if configuration can be found
-        if check_dir_exists(path_to_conf.clone()) {
-            // config found
+        if check_dir_exists(&path_to_conf) {
             let contents: String = fs::read_to_string(&path_to_conf).unwrap();
             conf = match toml::from_str(&contents) {
                 Ok(content) => content,
                 Err(_e) => {
                     println!("error in your config!");
-
-                    println!("using the following defaults: {conf:?}");
+                    println!("using the following defaults: {conf:#?}");
                     conf
                 }
             };
         } else {
-            // config not found
             match readinput("create base configuraton file? ( [y]es / [n]o ): ")
                 .expect("input failed")
                 .as_str()
             {
-                // create file and write defaults into it
-                "y" => {
+                "y" | "yes" => {
                     create_path(&path_to_conf);
-
                     let _ = export_line(&path_to_conf, toml::to_string(&conf).unwrap(), false);
                 }
                 _ => {
@@ -79,18 +72,18 @@ impl ConfigFile {
 
         // onto checking for the todo.md file itself
 
-        let mut unified_path: PathBuf = conf.path.todo_path.join(conf.path.todo_filename.clone());
+        let mut unified_path: PathBuf = conf.path.todo_path.join(&conf.path.todo_filename);
 
-        while !check_dir_exists(unified_path.clone()) {
+        while !check_dir_exists(&unified_path) {
             match readinput(&format!(
-                "create {} ?\n( [y]es / [n]o / [c]hange ):",
+                "create {} ?\n( [y]es / [n]o / [c]hange ): ",
                 unified_path.display()
             ))
             .expect("input failed")
             .as_str()
             {
-                "y" => create_path(&unified_path),
-                "c" => {
+                "y" | "yes" => create_path(&unified_path),
+                "c" | "change" => {
                     println!("so you want to change?");
                     let new_path = PathBuf::from(
                         readinput("desired path to todo.md file (including filename): ").unwrap(),
@@ -112,7 +105,7 @@ impl ConfigFile {
 
 // creates file and parent path
 pub fn create_path(path: &PathBuf) {
-    match check_dir_exists(path.clone()) {
+    match check_dir_exists(&path) {
         false => {
             if let Some(parent) = path.parent() {
                 let _ = std::fs::create_dir_all(parent);
@@ -126,7 +119,8 @@ pub fn create_path(path: &PathBuf) {
     }
 }
 
-/// Parses a Vec of raw Strings and writes them into the Todo container
+/// Parses a Vec of raw Strings and writes them into the Todo container.
+/// A task will only be recognised by the configured `TodoConfig.completion_style`
 pub fn strings_to_todo(lines: Vec<String>, conf_todo: &TodoConfig) -> Vec<TodoItem> {
     let mut item_list: Vec<TodoItem> = Vec::new();
 
@@ -220,16 +214,24 @@ impl TodoItem {
         result_string.push(' ');
         result_string.push_str(&todoitem.title);
         result_string.push(' ');
-        match &todoitem.date_due {
-            Some(date) => result_string.push_str(date.to_string().as_str()), // TODO: can this be written nicer?
-            None => result_string.push_str(""),
-        };
+        if let Some(date) = &todoitem.date_due {
+            result_string.push_str(date.to_string().as_str());
+        }
+        if &todoitem.tags.len() > &0 {
+            for tag in &todoitem.tags {
+                result_string.push_str(&format!(" {tag}"))
+            }
+        }
+        if &todoitem.names.len() > &0 {
+            for name in &todoitem.names {
+                result_string.push_str(&format!(" {name}"))
+            }
+        }
 
         result_string
     }
 }
 
-// TODO: not respecting config yet
 pub struct TodoConfig {
     pub completion_style: Regex, // check if line is valid
     pub completion_done: Regex,  // check if valid line is done
@@ -296,7 +298,8 @@ pub fn remove_lines(filepath: &PathBuf, line_nr: Vec<usize>) {
 }
 
 pub fn change_line(filepath: &PathBuf, line_nr: usize, line_content: String) {
-    let original_content = fs::read_to_string(filepath).expect("file not found"); // TODO: is it a problem that we read to string at every call?
+    // TODO: Avoid reading from the filesystem at every call. Batch all of it into one operation.
+    let original_content = fs::read_to_string(filepath).expect("file not found");
     let line_nr_zero_indexed: usize = if line_nr < 1 { line_nr } else { line_nr - 1 };
 
     let lines: Vec<String> = original_content
@@ -329,6 +332,7 @@ pub fn read_lines(filepath: &PathBuf) -> Vec<String> {
     lines
 }
 
+/// `append: false` would overwrite the existing content
 pub fn export_line(filepath: &PathBuf, line_content: String, append: bool) -> std::io::Result<()> {
     let mut file = fs::OpenOptions::new()
         .write(true)
@@ -341,7 +345,7 @@ pub fn export_line(filepath: &PathBuf, line_content: String, append: bool) -> st
     Ok(())
 }
 
-pub fn check_dir_exists(path: PathBuf) -> bool {
+pub fn check_dir_exists(path: &PathBuf) -> bool {
     match path.try_exists() {
         Ok(true) => {
             // just return true?
@@ -381,13 +385,13 @@ impl Todo {
         }
     }
 
-    // TODO: I forgot why input_content is of type Vec. Consider removing that to avoid bugs.
+    /// input_content is of type `&Vec<String>` because that's what clap uses to capture all argument after the command
     pub fn add(&self, input_content: &Vec<String>, conf_todo: &TodoConfig, conf_file: &ConfigFile) {
         let mut item: TodoItem = strings_to_todo(
             vec![format!(
                 "{} {}",
-                conf_todo.example_todo, // whacky workaround because strings_to_todo will only detect tasks by their checkboxes
-                input_content.join("")
+                conf_todo.example_todo,
+                input_content.join(" ")
             )],
             &conf_todo,
         )
@@ -395,8 +399,6 @@ impl Todo {
         .expect("unable to convert your input into a task, sorry")
         .to_owned();
         item.id = self.todo_list.len() + 1;
-
-        println!("adding task:");
 
         let _ = export_line(
             &conf_file
@@ -407,7 +409,7 @@ impl Todo {
             true,
         );
 
-        Self::list_single(&item);
+        Self::list_single(&item, "adding");
     }
 
     pub fn done(&mut self, indicies: &Vec<usize>, conf_file: &ConfigFile, conf_todo: &TodoConfig) {
@@ -415,7 +417,7 @@ impl Todo {
         let mut to_check_off: Vec<usize> = Vec::new();
         let mut to_uncheck: Vec<usize> = Vec::new();
 
-        // iterate arguments and sanitize; they should all already be valid unsigned integers due to clap
+        // sanitize input
         for item in indicies {
             if item <= &self.todo_list.len() && item > &0 {
                 // valid, can remove safely
@@ -429,8 +431,7 @@ impl Todo {
             }
         }
 
-        // write into file and list them
-        println!("now done:");
+        // write into file and list
         for pos in to_check_off {
             self.todo_list[pos].is_completed = true;
             change_line(
@@ -442,21 +443,18 @@ impl Todo {
                 TodoItem::get_string(&self.todo_list[pos], conf_todo),
             );
 
-            Self::list_single(&self.todo_list[pos]);
+            Self::list_single(&self.todo_list[pos], "done");
         }
 
-        // send those to uncheck
         if to_uncheck.len() > 0 {
             self.uncheck(&to_uncheck, conf_file, conf_todo)
         };
-        // TODO: finish this, probably buggy
     }
 
-    // TODO: duplicates code from done(), could probably be simpler
     pub fn uncheck(&mut self, ids: &Vec<usize>, conf_file: &ConfigFile, conf_todo: &TodoConfig) {
-        // to store sanitized ids
-        let mut to_uncheck: Vec<usize> = Vec::new();
-        // sanitize
+        let mut to_uncheck: Vec<usize> = Vec::new(); // to store sanitized ids
+
+        // sanitize input
         for item in ids {
             if item <= &self.todo_list.len() && item > &0 {
                 to_uncheck.push(item - 1); // valid, can remove safely
@@ -464,8 +462,8 @@ impl Todo {
                 println!("argument {item} is out of range");
             }
         }
-        // write into file and list them
-        println!("unchecked:");
+
+        // write into file and list
         for pos in to_uncheck {
             self.todo_list[pos].is_completed = false;
             change_line(
@@ -477,41 +475,54 @@ impl Todo {
                 TodoItem::get_string(&self.todo_list[pos], conf_todo),
             );
 
-            Self::list_single(&self.todo_list[pos]);
+            Self::list_single(&self.todo_list[pos], "unchecked");
         }
     }
 
-    // TODO notice that we're currently removing by line number not by task id
-    // TODO: implement confirmation before deleting them
+    // TODO: Notice how we're currently removing by line number, not by task id? The api should be more robust than that.
     pub fn remove(&self, ids: &Vec<usize>, path: PathBuf) {
-        println!("removing the following task(s):");
-
-        // delete those tasks
+        let mut delete_all = false;
         let mut lines_to_rm: Vec<usize> = Vec::new();
         for item in &self.todo_list {
             if ids.contains(&item.id) {
-                lines_to_rm.push(item.line);
-                Self::list_single(&item);
+                Self::list_single(&item, "to remove");
+                if !delete_all {
+                    match readinput("delete that task? ( [y]es / [n]o / [a]ll ): ")
+                        .expect("input failed")
+                        .as_str()
+                    {
+                        "y" | "yes" => lines_to_rm.push(item.line),
+                        "a" | "all" => {
+                            delete_all = true;
+                            lines_to_rm.push(item.line);
+                        }
+                        _ => (),
+                    }
+                } else {
+                    lines_to_rm.push(item.line);
+                }
             }
         }
         remove_lines(&path, lines_to_rm);
     }
 
-    fn list_single(item: &TodoItem) {
-        let mut line: ColoredString;
+    /// `prefix` is prepended with ": " or ignored if empty
+    fn list_single(item: &TodoItem, prefix: &str) {
+        let mut line: ColoredString = "".into();
 
-        // every task has these
-
-        if item.is_completed {
-            line = format!("[x] ").into();
-        } else {
-            line = format!("[ ] ").into();
+        if !prefix.is_empty() {
+            line = format!("{prefix}: ").into();
         }
 
+        // every task has these
+        if item.is_completed {
+            line = format!("{line}[x] ").into();
+        } else {
+            line = format!("{line}[ ] ").into();
+        }
         line = format!("{line} {} {}", item.id, item.title).into();
 
         // optional parts
-
         if let Some(date) = item.date_due {
             line = format!("{line}{}{}", " | ", date.to_string().red()).into();
         }
@@ -523,7 +534,6 @@ impl Todo {
         }
 
         // modifications to the whole string
-
         if item.is_completed {
             line = format!("{}", line).strikethrough();
         };
@@ -533,7 +543,7 @@ impl Todo {
 
     pub fn list_all(&self) {
         for it in &self.todo_list {
-            Todo::list_single(it);
+            Todo::list_single(it, "");
         }
     }
 }

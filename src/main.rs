@@ -26,7 +26,6 @@ enum Commands {
         ids: Vec<usize>,
     },
     /// check off a task
-    /// TODO: this should also be a shorthand to uncheck if task is already done
     #[clap(alias = "d")]
     Done {
         /// IDs of the tasks to mark done
