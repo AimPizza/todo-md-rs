@@ -1,11 +1,3 @@
-# Installation
-
-this will compile a binary to `~/.cargo/bin` which needs to be in your `$PATH` 
-```shell
-git clone git@github.com:AimPizza/todo-md-rs.git
-cd todo-md-rs
-cargo install --path=.
-```
 # Usage
 
 ```shell
@@ -21,9 +13,22 @@ todo done 1
 todo remove 1
 ```
 
+# Installation
+
+This way is not optimal but currently the only one and it works. You do need to have [Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) installed.
+
+The following will compile a binary to `~/.cargo/bin`. A proper Rust installation should add this directory to your `$PATH` but check that environment variable if you get `todo: command not found`.
+
+```shell
+git clone git@github.com:AimPizza/todo-md-rs.git
+cd todo-md-rs
+# "--path" points to the Rust project that you want to install, not the final installation.
+cargo install --path=.
+```
+
 # Configuration
 
-Upon launching the program for the first time it will ask you whether it should create a configuration file in $HOME/.config/todo-md-rs/.
+Upon launching the program for the first time it will ask you whether it should create a configuration file in `~/.config/todo-md-rs/`.
 the following parameters are allowed:
 
 | parameter | value | explanation |
