@@ -2,12 +2,10 @@
 name = "todo-md-rs"
 version = "0.1.0"
 edition = "2021"
-description = "todo cli program to interact with Markdown files "
+description = "cli todo tool to interact with markdown files"
 [[bin]]
 name = "todo"
 path = "src/main.rs"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 chrono = "0.4.31"

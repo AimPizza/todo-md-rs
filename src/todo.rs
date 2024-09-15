@@ -17,12 +17,15 @@ pub struct TodoPath {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TodoFormatting {
-    pub checkbox_style: String, // accepted: "md", "logseq"
+    /// accepted: "md", "logseq"
+    pub checkbox_style: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ConfigFile {
+    /// path leading to a todo-file
     pub path: TodoPath,
+    /// format of the checkbox
     pub format: TodoFormatting,
 }
 impl ConfigFile {
@@ -510,10 +513,6 @@ impl Todo {
     fn list_single(item: &TodoItem, prefix: &str) {
         let mut line: ColoredString = "".into();
 
-        if !prefix.is_empty() {
-            line = format!("{prefix}: ").into();
-        }
-
         // every task has these
         if item.is_completed {
             line = format!("{line}[x] ").into();
@@ -533,10 +532,12 @@ impl Todo {
             line = format!("{line}{}{}", " | ", item.names.join(" ").cyan()).into();
         }
 
-        // modifications to the whole string
         if item.is_completed {
             line = format!("{}", line).strikethrough();
         };
+        if !prefix.is_empty() {
+            line = format!("{prefix}: {}", line).into();
+        }
 
         println!("{line}");
     }

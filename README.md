@@ -70,6 +70,7 @@ This program should fulfill certian requirements:
 # Features TODO
 
 - [ ] tests / code improvement
+  - [ ] solve problem of creating tests interacting with runtime prompts and file reading
   - [ ] a simple test adding a task with all parameters
   - [ ] when adding a new command, one has to add code in multiple places ( get_string, strings_to_todo, list_single and mby more ). This creates multiple places for bugs to occur.
 - [x] nicer UI
@@ -79,8 +80,13 @@ This program should fulfill certian requirements:
 - [x] contrasting actions ( add/remove, done/uncheck )
 - [ ] comply with [todo.md](https://github.com/todomd/todo.md)
   - [ ] implement sections / heading parsing
+  - [ ] subtasks (two spaces per indentation level)
+  - [ ] two spaces at the end of each task for linebreaks
   - [x] handle @name and #tags
+  - [ ] (there is no one good standard, this one is from todo-md) add declining tasks (checkbox: [-] )
 - [ ] package for Distros (AUR and nixpkgs is the goal for now)
+  - [ ] NixOS: decide whether to implement [home-manager](https://github.com/nix-community/home-manager) module or just a package
+  - [ ] NixOS: option for $TODOFILE environment-variable (?)
 - [ ] not to overbloat things but now that I finish more and more features, I'd like to dream of things like:
   - [ ] CalDAV 
   - [ ] gui app
