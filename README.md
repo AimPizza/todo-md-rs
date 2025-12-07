@@ -33,7 +33,7 @@ the following parameters are allowed:
 
 | parameter | value | explanation |
 | --- | --- | --- |
-| todo_path | some valid path | where your todo file will be located |
+| todo_path | some valid path | base directory of your todo file |
 | todo_filename | some valid name | what your todofile is called |
 | checkbox_style | "logseq", "md" | recognizes patterns of completion. logseq: TODO DONE, md: [ ] [X] |
 
@@ -74,7 +74,7 @@ This program should fulfill certian requirements:
   - [ ] a simple test adding a task with all parameters
   - [ ] when adding a new command, one has to add code in multiple places ( get_string, strings_to_todo, list_single and mby more ). This creates multiple places for bugs to occur.
 - [x] nicer UI
-  - [x] display tags and assigned names
+  - [x] display tags and assignees
 - [ ] config options
   - [ ] ignore confirmations (don't prompt before removing task)
 - [x] contrasting actions ( add/remove, done/uncheck )

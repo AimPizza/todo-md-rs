@@ -135,11 +135,8 @@ pub fn strings_to_todo(lines: Vec<String>, conf_todo: &TodoConfig) -> Vec<TodoIt
             let mut item = TodoItem::new();
             let mut l_mut: String = line.to_string();
 
-            // ID and LINE, duh
             item.id = item_list.len() + 1;
             item.line = linecount + 1;
-
-            // COMPLETION
             item.is_completed = if conf_todo.completion_done.is_match(&line) {
                 l_mut = conf_todo.completion_done.replace(&l_mut, "").into(); // remove the checkbox
                 true
@@ -147,8 +144,6 @@ pub fn strings_to_todo(lines: Vec<String>, conf_todo: &TodoConfig) -> Vec<TodoIt
                 l_mut = conf_todo.completion_style.replace(&l_mut, "").into(); // remove the checkbox
                 false
             };
-
-            // DATE
             item.date_due = match conf_todo.date_format.captures(&line) {
                 Some(date) => {
                     l_mut = conf_todo.date_format.replace(&l_mut, " ").into(); // remove the first date and assume it's the due_date
@@ -158,20 +153,20 @@ pub fn strings_to_todo(lines: Vec<String>, conf_todo: &TodoConfig) -> Vec<TodoIt
             };
 
             // TAG
-            let tag_re = Regex::new(r"#\w+").unwrap();
-            tag_re
+            conf_todo
+                .tag_format
                 .captures_iter(&line)
                 .map(|captures| captures.get(0).unwrap().as_str())
                 .for_each(|tag| item.tags.push(tag.into()));
-            l_mut = tag_re.replace_all(&l_mut, "").into();
+            l_mut = conf_todo.tag_format.replace_all(&l_mut, "").into();
 
-            // NAME
-            let name_re = Regex::new(r"@\w+").unwrap();
-            name_re
+            // ASSIGNEES
+            conf_todo
+                .assignee_format
                 .captures_iter(&line)
                 .map(|captures| captures.get(0).unwrap().as_str())
-                .for_each(|name| item.names.push(name.into()));
-            l_mut = name_re.replace_all(&l_mut, "").into();
+                .for_each(|assignee_name| item.assignees.push(assignee_name.into()));
+            l_mut = conf_todo.assignee_format.replace_all(&l_mut, "").into();
 
             // TITLE
             item.title = l_mut.trim().to_string(); // take what's left for the title
@@ -191,7 +186,7 @@ pub struct TodoItem {
     pub title: String,
     pub date_due: Option<NaiveDate>,
     pub tags: Vec<String>,
-    pub names: Vec<String>,
+    pub assignees: Vec<String>,
 }
 impl TodoItem {
     pub fn new() -> TodoItem {
@@ -202,7 +197,7 @@ impl TodoItem {
             title: String::from(""),
             date_due: None,
             tags: Vec::new(),
-            names: Vec::new(),
+            assignees: Vec::new(),
         }
     }
 
@@ -225,9 +220,9 @@ impl TodoItem {
                 result_string.push_str(&format!(" {tag}"))
             }
         }
-        if &todoitem.names.len() > &0 {
-            for name in &todoitem.names {
-                result_string.push_str(&format!(" {name}"))
+        if &todoitem.assignees.len() > &0 {
+            for assignee_name in &todoitem.assignees {
+                result_string.push_str(&format!(" {assignee_name}"))
             }
         }
 
@@ -236,9 +231,11 @@ impl TodoItem {
 }
 
 pub struct TodoConfig {
-    pub completion_style: Regex, // check if line is valid
-    pub completion_done: Regex,  // check if valid line is done
+    pub completion_style: Regex,
+    pub completion_done: Regex,
     pub date_format: Regex,
+    pub tag_format: Regex,
+    pub assignee_format: Regex,
     pub example_todo: String,
     pub example_done: String,
 }
@@ -248,6 +245,8 @@ impl TodoConfig {
             completion_style: Regex::new(r"^\s*-\s*\[[ xX]\]").unwrap(),
             completion_done: Regex::new(r"^\s*-\s*\[[^\s]\]").unwrap(),
             date_format: Regex::new(r"(?:^|\s)(\d{4}-\d{2}-\d{2})(?:\s|$)").unwrap(),
+            tag_format: Regex::new(r"#\w+").unwrap(),
+            assignee_format: Regex::new(r"@\w+").unwrap(),
             example_todo: String::from("- [ ]"),
             example_done: String::from("- [X]"),
         };
@@ -261,6 +260,8 @@ impl TodoConfig {
             TodoConfig {
                 completion_style: Regex::new(r"^\s*-\s*[A-Z]{4}").unwrap(),
                 completion_done: Regex::new(r"^\s*-\s*DONE\s").unwrap(),
+                tag_format: default_md.tag_format,
+                assignee_format: default_md.assignee_format,
                 date_format: default_md.date_format,
                 example_todo: String::from("- TODO"),
                 example_done: String::from("- DONE"),
@@ -528,8 +529,8 @@ impl Todo {
         if !item.tags.is_empty() {
             line = format!("{line}{}{}", " | ", item.tags.join(" ").green()).into();
         }
-        if !item.names.is_empty() {
-            line = format!("{line}{}{}", " | ", item.names.join(" ").cyan()).into();
+        if !item.assignees.is_empty() {
+            line = format!("{line}{}{}", " | ", item.assignees.join(" ").cyan()).into();
         }
 
         if item.is_completed {

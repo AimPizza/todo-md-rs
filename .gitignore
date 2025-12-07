@@ -1,5 +1,6 @@
 /target
 /backup
+/doc
 todo.md
 flake.nix
 flake.lock
